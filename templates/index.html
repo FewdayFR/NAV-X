@@ -1,191 +1,75 @@
 <!DOCTYPE html>
-<html lang="fr">
+<html>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>NAV-X Dashboard</title>
+    <title>NAV-X</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
     <style>
-        :root {
-            --bg: #0f0f0f;
-            --accent: #ff3e3e;
-            --green: #00c851;
-            --white: #ffffff;
-            --grey: #1a1a1a;
-        }
-
-        body {
-            margin: 0; background: var(--bg); color: var(--white);
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            overflow: hidden; touch-action: none;
-        }
-
-        /* --- TOP BAR & STATUS --- */
-        .top-bar {
-            height: 60px; background: #000; display: flex;
-            align-items: center; justify-content: space-between;
-            padding: 0 20px; border-bottom: 2px solid var(--grey);
-        }
-
-        .navx-logo { height: 40px; }
-
-        .status-badge {
-            padding: 5px 12px; border-radius: 20px; font-size: 12px;
-            font-weight: bold; display: flex; align-items: center; gap: 8px;
-            transition: all 0.3s;
-        }
-        .status-online { background: rgba(0, 200, 81, 0.2); color: var(--green); border: 1px solid var(--green); }
-        .status-offline { background: rgba(255, 64, 64, 0.2); color: var(--accent); border: 1px solid var(--accent); }
+        body { margin: 0; background: #0f0f0f; color: white; font-family: sans-serif; overflow: hidden; touch-action: none; }
+        .top-bar { height: 60px; background: #000; display: flex; align-items: center; justify-content: space-between; padding: 0 20px; border-bottom: 2px solid #333; }
+        .status-badge { padding: 5px 12px; border-radius: 20px; font-size: 12px; font-weight: bold; display: flex; align-items: center; gap: 8px; }
+        .status-online { background: rgba(0, 200, 81, 0.2); color: #00c851; border: 1px solid #00c851; }
+        .status-offline { background: rgba(255, 62, 62, 0.2); color: #ff4444; border: 1px solid #ff4444; }
         .status-dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
-
-        /* --- DASHBOARD LAYOUT --- */
-        .container {
-            display: grid; grid-template-columns: 1fr 300px;
-            height: calc(100vh - 60px); padding: 10px; gap: 10px;
-        }
-
-        .main-view { background: var(--grey); border-radius: 10px; position: relative; overflow: hidden; }
-        .side-panel { display: flex; flex-direction: column; gap: 10px; }
-
-        .control-card {
-            background: var(--grey); border-radius: 10px; padding: 15px;
-            text-align: center; border: 1px solid #333;
-        }
-
-        .btn {
-            background: #222; border: 1px solid #444; color: white;
-            padding: 15px; border-radius: 8px; cursor: pointer; font-weight: bold;
-            width: 100%; margin-bottom: 5px; transition: 0.2s;
-        }
-        .btn:active { background: var(--accent); transform: scale(0.98); }
-        .btn-active { background: var(--accent); border-color: var(--white); }
-
-        /* --- LOADER --- */
-        #loader {
-            position: fixed; inset: 0; background: var(--bg);
-            display: flex; flex-direction: column; align-items: center;
-            justify-content: center; z-index: 1000; transition: opacity 0.5s;
-        }
-        .spinner {
-            width: 50px; height: 50px; border: 5px solid #333;
-            border-top: 5px solid var(--accent); border-radius: 50%;
-            animation: spin 1s linear infinite;
-        }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .container { display: grid; grid-template-columns: 1fr 300px; height: calc(100vh - 60px); padding: 10px; gap: 10px; }
+        .main-view { background: #1a1a1a; border-radius: 10px; position: relative; }
+        .btn { background: #222; border: 1px solid #444; color: white; padding: 15px; border-radius: 8px; width: 100%; margin-bottom: 5px; cursor: pointer; }
+        .btn-active { background: #ff4444; }
+        #loader { position: fixed; inset: 0; background: #0f0f0f; display: flex; align-items: center; justify-content: center; z-index: 1000; }
     </style>
 </head>
 <body>
 
-<div id="loader">
-    <div class="spinner"></div>
-    <p>INITIALISATION NAV-X...</p>
-</div>
+<div id="loader"><p>CHARGEMENT...</p></div>
 
 <div class="top-bar">
-    <div style="display: flex; align-items: center; gap: 15px;">
-        <img src="/static/logo.png" class="navx-logo" onerror="this.style.display='none'">
-        <div id="esp-status" class="status-badge status-offline">
-            <div class="status-dot"></div>
-            <span id="status-text">ESP32 DÉCONNECTÉ</span>
-        </div>
+    <div id="esp-status" class="status-badge status-offline">
+        <div class="status-dot"></div>
+        <span id="status-text">ESP32 DISCONNECTED</span>
     </div>
-    <div style="color:var(--accent); font-weight: bold;">NAV-X SYSTEM</div>
+    <div style="color:#ff4444; font-weight: bold;">NAV-X SYSTEM</div>
 </div>
 
 <div class="container">
-    <div class="main-view">
-        <div style="position:absolute; bottom:20px; left:20px; background:rgba(0,0,0,0.5); padding:10px;">
-            Vitesse: <span id="v-val">0</span> | Direction: <span id="d-val">0</span>
-        </div>
-    </div>
-
+    <div class="main-view"></div>
     <div class="side-panel">
-        <div class="control-card">
-            <h3>ÉCLAIRAGE</h3>
-            <button class="btn" onclick="setBlinker('L')" id="btn-L">CLIGNOT. GAUCHE</button>
-            <button class="btn" onclick="setBlinker('R')" id="btn-R">CLIGNOT. DROIT</button>
-            <button class="btn" onclick="setBlinker('W')" id="btn-W">WARNINGS</button>
-        </div>
-
-        <div class="control-card">
-            <h3>SYSTÈME</h3>
-            <button class="btn" onmousedown="setHorn(true)" onmouseup="setHorn(false)" ontouchstart="setHorn(true)" ontouchend="setHorn(false)">KLAXON (GONG)</button>
-        </div>
+        <button class="btn" onclick="setB('L')" id="btn-L">GAUCHE</button>
+        <button class="btn" onclick="setB('R')" id="btn-R">DROIT</button>
+        <button class="btn" onclick="setB('W')" id="btn-W">WARNING</button>
+        <button class="btn" onmousedown="setH(true)" onmouseup="setH(false)">KLAXON</button>
     </div>
 </div>
 
 <script>
     const socket = io();
-    let currentBlinker = 'OFF';
-    let hornActive = false;
-    let lastSendTime = 0;
-
-    // --- Cacher le loader quand Socket est prêt ---
-    socket.on('connect', () => {
-        document.getElementById('loader').style.opacity = '0';
-        setTimeout(() => document.getElementById('loader').style.display = 'none', 500);
-    });
-
-    // --- Gestion du Statut ESP32 ---
-    socket.on('esp_status', (data) => {
-        const badge = document.getElementById('esp-status');
-        const text = document.getElementById('status-text');
-        if (data.connected) {
-            badge.className = "status-badge status-online";
-            text.innerText = "ESP32 CONNECTÉ";
-        } else {
-            badge.className = "status-badge status-offline";
-            text.innerText = "ESP32 DÉCONNECTÉ";
-        }
-    });
-
-    // --- Contrôles au clavier (ZQSD) ---
+    let bMode = 'OFF', hAct = false, lastS = 0;
     let keys = {};
-    window.onkeydown = (e) => { keys[e.key.toLowerCase()] = true; updateDrive(); };
-    window.onkeyup = (e) => { keys[e.key.toLowerCase()] = false; updateDrive(); };
 
-    function updateDrive() {
+    socket.on('connect', () => document.getElementById('loader').style.display='none');
+    socket.on('esp_status', (d) => {
+        const b = document.getElementById('esp-status');
+        b.className = d.connected ? "status-badge status-online" : "status-badge status-offline";
+        document.getElementById('status-text').innerText = d.connected ? "ESP32 CONNECTED" : "ESP32 DISCONNECTED";
+    });
+
+    window.onkeydown = (e) => { keys[e.key.toLowerCase()] = true; drive(); };
+    window.onkeyup = (e) => { keys[e.key.toLowerCase()] = false; drive(); };
+
+    function setB(m) { bMode = (bMode === m) ? 'OFF' : m; drive(); }
+    function setH(s) { hAct = s; drive(); }
+
+    function drive() {
         let v = 0, d = 0;
-        if (keys['z']) v = 255;
-        if (keys['s']) v = -255;
-        if (keys['q']) d = -255;
-        if (keys['d']) d = 255;
+        if (keys['z']) v = 255; if (keys['s']) v = -255;
+        if (keys['q']) d = -255; if (keys['d']) d = 255;
         
-        document.getElementById('v-val').innerText = v;
-        document.getElementById('d-val').innerText = d;
-        
-        sendData(v, d);
-    }
-
-    function setBlinker(mode) {
-        currentBlinker = (currentBlinker === mode) ? 'OFF' : mode;
-        // Mise à jour visuelle des boutons
-        ['L', 'R', 'W'].forEach(m => {
-            document.getElementById('btn-'+m).classList.toggle('btn-active', currentBlinker === m);
-        });
-        sendData(0, 0); // Envoi immédiat du changement de mode
-    }
-
-    function setHorn(state) {
-        hornActive = state;
-        sendData(0, 0);
-    }
-
-    // --- FONCTION D'ENVOI AVEC LIMITATION (ANTI-LATENCE) ---
-    function sendData(v, d) {
         const now = Date.now();
-        // On limite à 1 message toutes les 50ms pour ne pas saturer le port série
-        if (now - lastSendTime > 50) {
-            socket.emit('drive_cmd', {
-                v: v, 
-                d: d, 
-                blinker: currentBlinker, 
-                horn: hornActive
-            });
-            lastSendTime = now;
+        if (now - lastS > 50) { // LIMITATEUR ANTI-LATENCE
+            socket.emit('drive_cmd', {v:v, d:d, blinker:bMode, horn:hAct});
+            lastS = now;
         }
     }
 </script>
-
 </body>
 </html>

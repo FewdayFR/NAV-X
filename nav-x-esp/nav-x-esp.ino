@@ -2,30 +2,28 @@
 #include <TinyGPS++.h>
 #include <ESP32Servo.h>
 
-// --- PINS MOTEURS SÛRES ---
-#define ENA 25  // PWM Gauche
+#define ENA 25
 #define IN1 26
 #define IN2 27
-#define ENB 12  // PWM Droit
+#define ENB 12
 #define IN3 14
 #define IN4 32
-
-// --- ACCESSOIRES ---
 #define PIN_SERVO 13
 #define PIN_LEDS  4
 #define NUM_LEDS  14
 
-// Essayer NEO_BRG si les couleurs sont inversées (Rose au lieu de Orange)
+// WS2811 : Essayer NEO_BRG si les couleurs sont inversées
 Adafruit_NeoPixel pixels(NUM_LEDS, PIN_LEDS, NEO_BRG + NEO_KHZ800);
 TinyGPSPlus gps;
 Servo camServo;
 HardwareSerial SerialGPS(2); 
 
-int currentBlinker = 0; // 0:Off, 1:L, 2:R, 3:W
+int currentBlinker = 0; 
 unsigned long lastGps = 0;
 
 void setup() {
   Serial.begin(115200);
+  Serial.setTimeout(5); // Très important pour la réactivité
   SerialGPS.begin(9600, SERIAL_8N1, 16, 17);
   
   pinMode(ENA, OUTPUT); pinMode(IN1, OUTPUT); pinMode(IN2, OUTPUT);
@@ -40,15 +38,22 @@ void setup() {
 void loop() {
   while (SerialGPS.available() > 0) gps.encode(SerialGPS.read());
 
+  // Envoi Heartbeat + GPS
   if (millis() - lastGps > 1000) {
     if (gps.location.isValid()) {
       Serial.print("GPS:"); Serial.print(gps.location.lat(), 6);
       Serial.print(","); Serial.println(gps.location.lng(), 6);
+    } else {
+      Serial.println("ALIVE"); 
     }
     lastGps = millis();
   }
 
+  // LECTURE COMMANDE AVEC ANTI-LATENCE
   if (Serial.available() > 0) {
+    if (Serial.available() > 16) { 
+      while (Serial.available() > 8) { Serial.read(); } 
+    }
     String cmd = Serial.readStringUntil('\n');
     parseCommand(cmd);
   }
@@ -79,44 +84,24 @@ void controlMotor(int spd, int p_pwm, int p_i1, int p_i2) {
 void updateLEDs() {
   static unsigned long lastB = 0;
   static bool flash = false;
-  
-  // Vitesse de clignotement rapide (300ms)
   if (millis() - lastB < 300) return;
-  lastB = millis();
-  flash = !flash;
+  lastB = millis(); flash = !flash;
 
   uint32_t RED = pixels.Color(255, 0, 0);
-  uint32_t ORANGE_DEEP = pixels.Color(255, 30, 0); // Orange très rouge (Sanguin)
+  uint32_t ORANGE = pixels.Color(255, 30, 0); 
   uint32_t WHITE = pixels.Color(255, 255, 255);
   uint32_t OFF = pixels.Color(0, 0, 0);
 
-  // ÉTAPE 1 : On prépare le fond
   for(int i=0; i<14; i++) {
-    if (i == 6 || i == 7) {
-      pixels.setPixelColor(i, WHITE); // Le centre est TOUJOURS blanc
-    } else {
-      pixels.setPixelColor(i, RED);   // Le reste est TOUJOURS rouge par défaut
-    }
+    if (i == 6 || i == 7) pixels.setPixelColor(i, WHITE);
+    else pixels.setPixelColor(i, RED);
   }
 
-  // ÉTAPE 2 : On superpose les clignotants par-dessus le rouge
-  if (currentBlinker == 1) { // GAUCHE (LEDs 0 à 5)
-    for(int i=0; i<6; i++) {
-      pixels.setPixelColor(i, flash ? ORANGE_DEEP : OFF);
-    }
-  } 
-  else if (currentBlinker == 2) { // DROITE (LEDs 8 à 13)
-    for(int i=8; i<14; i++) {
-      pixels.setPixelColor(i, flash ? ORANGE_DEEP : OFF);
-    }
+  if (currentBlinker == 1 || currentBlinker == 3) {
+    for(int i=0; i<6; i++) pixels.setPixelColor(i, flash ? ORANGE : OFF);
   }
-  else if (currentBlinker == 3) { // WARNING (Tout sauf le centre blanc)
-    for(int i=0; i<14; i++) {
-      if (i != 6 && i != 7) {
-        pixels.setPixelColor(i, flash ? ORANGE_DEEP : OFF);
-      }
-    }
+  if (currentBlinker == 2 || currentBlinker == 3) {
+    for(int i=8; i<14; i++) pixels.setPixelColor(i, flash ? ORANGE : OFF);
   }
-
   pixels.show();
 }
