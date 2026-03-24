@@ -2,285 +2,190 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <title>NAV-X Dashboard - TRANSNODE</title>
-    <link rel="icon" type="image/x-icon" href="/static/ico.ico">
-    
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>NAV-X Dashboard</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.css" />
-    <link rel="stylesheet" href="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.css" />
-    
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.js"></script>
-    <script src="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.js"></script>
-    
     <style>
         :root {
-            --bg: #080808; --card: #141414; --accent: #00d4ff; --text: #ffffff;
-            --orange: #ff9800; --red: #ff4444; --green: #00c851;
+            --bg: #0f0f0f;
+            --accent: #ff3e3e;
+            --green: #00c851;
+            --white: #ffffff;
+            --grey: #1a1a1a;
         }
-        body { background: var(--bg); color: var(--text); font-family: 'Inter', sans-serif; margin: 0; padding: 15px; overflow: hidden; }
-        
+
+        body {
+            margin: 0; background: var(--bg); color: var(--white);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            overflow: hidden; touch-action: none;
+        }
+
+        /* --- TOP BAR & STATUS --- */
+        .top-bar {
+            height: 60px; background: #000; display: flex;
+            align-items: center; justify-content: space-between;
+            padding: 0 20px; border-bottom: 2px solid var(--grey);
+        }
+
+        .navx-logo { height: 40px; }
+
+        .status-badge {
+            padding: 5px 12px; border-radius: 20px; font-size: 12px;
+            font-weight: bold; display: flex; align-items: center; gap: 8px;
+            transition: all 0.3s;
+        }
+        .status-online { background: rgba(0, 200, 81, 0.2); color: var(--green); border: 1px solid var(--green); }
+        .status-offline { background: rgba(255, 64, 64, 0.2); color: var(--accent); border: 1px solid var(--accent); }
+        .status-dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+
+        /* --- DASHBOARD LAYOUT --- */
+        .container {
+            display: grid; grid-template-columns: 1fr 300px;
+            height: calc(100vh - 60px); padding: 10px; gap: 10px;
+        }
+
+        .main-view { background: var(--grey); border-radius: 10px; position: relative; overflow: hidden; }
+        .side-panel { display: flex; flex-direction: column; gap: 10px; }
+
+        .control-card {
+            background: var(--grey); border-radius: 10px; padding: 15px;
+            text-align: center; border: 1px solid #333;
+        }
+
+        .btn {
+            background: #222; border: 1px solid #444; color: white;
+            padding: 15px; border-radius: 8px; cursor: pointer; font-weight: bold;
+            width: 100%; margin-bottom: 5px; transition: 0.2s;
+        }
+        .btn:active { background: var(--accent); transform: scale(0.98); }
+        .btn-active { background: var(--accent); border-color: var(--white); }
+
+        /* --- LOADER --- */
         #loader {
-            position: fixed; inset: 0; background: var(--bg); z-index: 10000;
-            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            position: fixed; inset: 0; background: var(--bg);
+            display: flex; flex-direction: column; align-items: center;
+            justify-content: center; z-index: 1000; transition: opacity 0.5s;
         }
-        .loader-dots { display: flex; gap: 8px; margin-top: 20px; }
-        .dot-load { width: 12px; height: 12px; background: var(--accent); border-radius: 50%; animation: bounce 0.6s infinite alternate; }
-        .dot-load:nth-child(2) { animation-delay: 0.2s; }
-        .dot-load:nth-child(3) { animation-delay: 0.4s; }
-        @keyframes bounce { from { transform: translateY(0); } to { transform: translateY(-15px); } }
-
-        .top-bar { display: flex; align-items: center; justify-content: space-between; padding-bottom: 10px; }
-        .navx-logo { height: 40px; filter: drop-shadow(0 0 5px var(--accent)); }
-
-        .dashboard-grid { display: grid; grid-template-columns: 1fr 2fr; grid-template-rows: 65vh 180px; gap: 15px; max-width: 1800px; margin: 0 auto; }
-        .card { background: var(--card); border-radius: 20px; border: 1px solid #252525; position: relative; overflow: hidden; }
-
-        #map { width: 100%; height: 100%; background: #111; }
-        .leaflet-routing-container { display: none !important; }
-        
-        #dest-popup {
-            position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            z-index: 9999; background: rgba(20, 20, 20, 0.98); border: 2px solid var(--accent);
-            padding: 25px; border-radius: 25px; text-align: center; display: none;
-            backdrop-filter: blur(20px); box-shadow: 0 0 50px rgba(0, 212, 255, 0.4);
-            width: 500px;
+        .spinner {
+            width: 50px; height: 50px; border: 5px solid #333;
+            border-top: 5px solid var(--accent); border-radius: 50%;
+            animation: spin 1s linear infinite;
         }
-        #mini-map { width: 100%; height: 250px; border-radius: 15px; margin: 15px 0; border: 1px solid #333; pointer-events: none; }
-        .popup-btns { display: flex; gap: 15px; justify-content: center; }
-        .btn-pop { padding: 12px 25px; border-radius: 10px; cursor: pointer; font-weight: bold; border: none; }
-        .btn-ready { background: #333; color: #aaa; }
-        .btn-go { background: var(--accent); color: #000; }
-
-        .map-selector {
-            position: absolute; bottom: 15px; left: 15px; z-index: 1000;
-            display: flex; gap: 5px; background: rgba(0,0,0,0.6); padding: 5px; border-radius: 8px;
-        }
-        .map-selector button { 
-            background: transparent; border: 1px solid #444; color: white; 
-            padding: 5px 10px; cursor: pointer; font-size: 10px; border-radius: 4px;
-        }
-        .map-selector button.active { border-color: var(--accent); color: var(--accent); }
-
-        .btn-recentrer { 
-            position: absolute; bottom: 15px; right: 15px; z-index: 1000;
-            background: rgba(20,20,20,0.8); color: white; border: 1px solid var(--accent);
-            padding: 8px 12px; border-radius: 6px; cursor: pointer; font-size: 11px;
-        }
-
-        .robot-halo { background: rgba(0, 212, 255, 0.4); border: 2px solid var(--accent); border-radius: 50%; pointer-events: none; }
-        .camera-container { background: #000; position: relative; }
-        #video-feed { width: 100%; height: 100%; object-fit: cover; }
-        .reflet { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; opacity: 0; z-index: 5; }
-        
-        @keyframes blink-anim { 0% { opacity: 0; } 50% { opacity: 1; } 100% { opacity: 0; } }
-        .flash-L .reflet { opacity: 1; background: radial-gradient(circle at 0% 50%, var(--orange) 0%, transparent 60%); animation: blink-anim 0.8s infinite; }
-        .flash-R .reflet { opacity: 1; background: radial-gradient(circle at 100% 50%, var(--orange) 0%, transparent 60%); animation: blink-anim 0.8s infinite; }
-        .flash-W .reflet { opacity: 1; background: linear-gradient(90deg, var(--orange) 0%, transparent 50%, var(--orange) 100%); animation: blink-anim 0.8s infinite; }
-
-        .speed-overlay {
-            position: absolute; bottom: 20px; left: 20px; z-index: 10;
-            background: rgba(0,0,0,0.8); padding: 12px 20px; border-radius: 15px; border: 1px solid var(--accent);
-        }
-        .speed-val { font-size: 38px; font-weight: 900; color: var(--accent); display: block; line-height: 1; }
-
-        .controls { grid-column: 1 / span 2; display: grid; grid-template-columns: 150px 1fr 150px; align-items: center; padding: 0 40px; }
-        .track { width: 12px; height: 100px; background: #222; border-radius: 6px; position: relative; overflow: hidden; }
-        .fill { width: 100%; position: absolute; bottom: 0; transition: height 0.1s linear; }
-        #fillL2 { background: var(--red); }
-        #fillR2 { background: var(--green); }
-        .dot { width: 45px; height: 45px; border: 2px solid #333; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 20px; color: #333; }
-        .active-dot { border-color: var(--orange); color: var(--orange); box-shadow: 0 0 15px var(--orange); animation: blink-anim 0.8s infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     </style>
 </head>
 <body>
 
 <div id="loader">
-    <img src="/static/logo.png" style="height:80px; filter:drop-shadow(0 0 10px var(--accent))">
-    <div class="loader-dots">
-        <div class="dot-load"></div><div class="dot-load"></div><div class="dot-load"></div>
-    </div>
-</div>
-
-<div id="dest-popup">
-    <h3 id="pop-addr" style="color:var(--accent); margin:0;">DESTINATION</h3>
-    <div id="mini-map"></div>
-    <div class="popup-btns">
-        <button class="btn-pop btn-ready" onclick="closePopup(false)">NOT READY YET</button>
-        <button class="btn-pop btn-go" onclick="closePopup(true)">LET'S GO</button>
-    </div>
+    <div class="spinner"></div>
+    <p>INITIALISATION NAV-X...</p>
 </div>
 
 <div class="top-bar">
-    <img src="/static/logo.png" class="navx-logo">
-    <div style="color:var(--accent); font-weight: bold;">NAV-X | DASHBOARD</div>
+    <div style="display: flex; align-items: center; gap: 15px;">
+        <img src="/static/logo.png" class="navx-logo" onerror="this.style.display='none'">
+        <div id="esp-status" class="status-badge status-offline">
+            <div class="status-dot"></div>
+            <span id="status-text">ESP32 DÉCONNECTÉ</span>
+        </div>
+    </div>
+    <div style="color:var(--accent); font-weight: bold;">NAV-X SYSTEM</div>
 </div>
 
-<div class="dashboard-grid">
-    <div class="card">
-        <div id="map"></div>
-        <div class="map-selector">
-            <button id="btn-dark" class="active" onclick="setMapStyle('dark')">DARK</button>
-            <button id="btn-sat" onclick="setMapStyle('sat')">SATELLITE</button>
-        </div>
-        <button class="btn-recentrer" onclick="recentrerMap()">📍 RECENTRER</button>
-    </div>
-    
-    <div id="cam-card" class="card camera-container">
-        <img id="video-feed" src="http://pi.local:8080/stream">
-        <div class="reflet"></div>
-        <div class="speed-overlay">
-            <span id="speed-display" class="speed-val">0</span>
-            <span style="font-size:10px; color:#aaa">KM/H</span>
+<div class="container">
+    <div class="main-view">
+        <div style="position:absolute; bottom:20px; left:20px; background:rgba(0,0,0,0.5); padding:10px;">
+            Vitesse: <span id="v-val">0</span> | Direction: <span id="d-val">0</span>
         </div>
     </div>
 
-    <div class="card controls">
-        <div style="text-align:center;"><div class="track"><div id="fillL2" class="fill"></div></div><span style="font-size:10px;">L2 FREIN</span></div>
-        <div style="text-align: center;">
-            <div style="display:flex; justify-content:center; gap:60px; margin-bottom:10px;">
-                <div id="dotL" class="dot">◀</div>
-                <div id="dotR" class="dot">▶</div>
-            </div>
-            <h1 style="margin:0; color:var(--accent);">NAV-X</h1>
-            <p id="dest-text" style="font-size:11px; color:#555;">SÉLECTIONNEZ UNE DESTINATION</p>
+    <div class="side-panel">
+        <div class="control-card">
+            <h3>ÉCLAIRAGE</h3>
+            <button class="btn" onclick="setBlinker('L')" id="btn-L">CLIGNOT. GAUCHE</button>
+            <button class="btn" onclick="setBlinker('R')" id="btn-R">CLIGNOT. DROIT</button>
+            <button class="btn" onclick="setBlinker('W')" id="btn-W">WARNINGS</button>
         </div>
-        <div style="text-align:center;"><div class="track"><div id="fillR2" class="fill"></div></div><span style="font-size:10px;">R2 GAZ</span></div>
+
+        <div class="control-card">
+            <h3>SYSTÈME</h3>
+            <button class="btn" onmousedown="setHorn(true)" onmouseup="setHorn(false)" ontouchstart="setHorn(true)" ontouchend="setHorn(false)">KLAXON (GONG)</button>
+        </div>
     </div>
 </div>
 
 <script>
     const socket = io();
-    const tickSon = new Audio('https://lasonotheque.org/UPLOAD/mp3/3110.mp3');
-    const gongSon = new Audio('/static/gong.mp3');
-    
-    let robotPos = [43.2951, -0.3708];
-    let tempDest = null, tempName = "";
-    let currentBlinker = null, audioInterval = null;
-    let lastL1 = false, lastR1 = false, lastTri = false, lastGong = false;
+    let currentBlinker = 'OFF';
+    let hornActive = false;
+    let lastSendTime = 0;
 
-    // --- CARTES ---
-    const map = L.map('map', {zoomControl: false}).setView(robotPos, 16);
-    const miniMap = L.map('mini-map', {zoomControl: false, attributionControl: false});
-
-    const darkLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png').addTo(map);
-    const satLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}');
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png').addTo(miniMap);
-
-    function setMapStyle(style) {
-        if(style === 'sat') {
-            map.addLayer(satLayer); map.removeLayer(darkLayer);
-            document.getElementById('btn-sat').classList.add('active');
-            document.getElementById('btn-dark').classList.remove('active');
-        } else {
-            map.addLayer(darkLayer); map.removeLayer(satLayer);
-            document.getElementById('btn-dark').classList.add('active');
-            document.getElementById('btn-sat').classList.remove('active');
-        }
-    }
-
-    map.createPane('haloPane'); map.getPane('haloPane').style.zIndex = 400;
-    const haloIcon = L.divIcon({ className: 'robot-halo', iconSize: [50, 50], iconAnchor: [25, 25] });
-    
-    // ANCRE MISE À 43 SELON TA DEMANDE
-    const robotIcon = L.icon({ iconUrl: '/static/ico.png', iconSize: [60, 60], iconAnchor: [30, 43] });
-
-    const haloMarker = L.marker(robotPos, {icon: haloIcon, pane: 'haloPane'}).addTo(map);
-    const robotMarker = L.marker(robotPos, {icon: robotIcon}).addTo(map);
-
-    const routing = L.Routing.control({
-        waypoints: [],
-        router: L.Routing.osrmv1({ serviceUrl: 'https://router.project-osrm.org/route/v1', profile: 'foot' }),
-        lineOptions: { styles: [{ color: '#00d4ff', weight: 5 }] },
-        createMarker: () => null, show: false
-    }).addTo(map);
-
-    const miniRouting = L.Routing.control({
-        waypoints: [],
-        router: L.Routing.osrmv1({ serviceUrl: 'https://router.project-osrm.org/route/v1', profile: 'foot' }),
-        lineOptions: { styles: [{ color: '#ff9800', weight: 4 }] },
-        createMarker: () => null, show: false
-    }).addTo(miniMap);
-
-    // AUTO-ZOOM DÉZOOMÉ POUR LA MINI MAP
-    miniRouting.on('routesfound', function(e) {
-        const bounds = L.latLngBounds([robotMarker.getLatLng(), tempDest]);
-        miniMap.fitBounds(bounds, {padding: [50, 50], maxZoom: 16});
+    // --- Cacher le loader quand Socket est prêt ---
+    socket.on('connect', () => {
+        document.getElementById('loader').style.opacity = '0';
+        setTimeout(() => document.getElementById('loader').style.display = 'none', 500);
     });
 
-    const geocoder = L.Control.geocoder({ defaultMarkGeocode: false, placeholder: "🔍 Destination..." })
-    .on('markgeocode', function(e) {
-        tempDest = e.geocode.center;
-        tempName = e.geocode.name.split(',')[0].toUpperCase();
-        document.getElementById('pop-addr').innerText = tempName;
-        document.getElementById('dest-popup').style.display = 'block';
+    // --- Gestion du Statut ESP32 ---
+    socket.on('esp_status', (data) => {
+        const badge = document.getElementById('esp-status');
+        const text = document.getElementById('status-text');
+        if (data.connected) {
+            badge.className = "status-badge status-online";
+            text.innerText = "ESP32 CONNECTÉ";
+        } else {
+            badge.className = "status-badge status-offline";
+            text.innerText = "ESP32 DÉCONNECTÉ";
+        }
+    });
+
+    // --- Contrôles au clavier (ZQSD) ---
+    let keys = {};
+    window.onkeydown = (e) => { keys[e.key.toLowerCase()] = true; updateDrive(); };
+    window.onkeyup = (e) => { keys[e.key.toLowerCase()] = false; updateDrive(); };
+
+    function updateDrive() {
+        let v = 0, d = 0;
+        if (keys['z']) v = 255;
+        if (keys['s']) v = -255;
+        if (keys['q']) d = -255;
+        if (keys['d']) d = 255;
         
-        // On force le rafraîchissement du tracé
-        setTimeout(() => {
-            miniMap.invalidateSize();
-            miniRouting.setWaypoints([L.latLng(robotMarker.getLatLng()), L.latLng(tempDest)]);
-        }, 300);
-    }).addTo(map);
+        document.getElementById('v-val').innerText = v;
+        document.getElementById('d-val').innerText = d;
+        
+        sendData(v, d);
+    }
 
-    function closePopup(confirm) {
-        document.getElementById('dest-popup').style.display = 'none';
-        if (confirm && tempDest) {
-            routing.setWaypoints([L.latLng(robotMarker.getLatLng()), L.latLng(tempDest)]);
-            document.getElementById('dest-text').innerText = tempName;
-            setTimeout(() => { map.panTo(robotMarker.getLatLng()); }, 400);
-        } else {
-            routing.setWaypoints([]);
-            miniRouting.setWaypoints([]);
-            document.getElementById('dest-text').innerText = "SÉLECTIONNEZ UNE DESTINATION";
+    function setBlinker(mode) {
+        currentBlinker = (currentBlinker === mode) ? 'OFF' : mode;
+        // Mise à jour visuelle des boutons
+        ['L', 'R', 'W'].forEach(m => {
+            document.getElementById('btn-'+m).classList.toggle('btn-active', currentBlinker === m);
+        });
+        sendData(0, 0); // Envoi immédiat du changement de mode
+    }
+
+    function setHorn(state) {
+        hornActive = state;
+        sendData(0, 0);
+    }
+
+    // --- FONCTION D'ENVOI AVEC LIMITATION (ANTI-LATENCE) ---
+    function sendData(v, d) {
+        const now = Date.now();
+        // On limite à 1 message toutes les 50ms pour ne pas saturer le port série
+        if (now - lastSendTime > 50) {
+            socket.emit('drive_cmd', {
+                v: v, 
+                d: d, 
+                blinker: currentBlinker, 
+                horn: hornActive
+            });
+            lastSendTime = now;
         }
     }
-
-    function recentrerMap() { map.panTo(robotMarker.getLatLng()); }
-
-    window.onload = () => { setTimeout(() => { document.getElementById('loader').style.display = 'none'; }, 2000); };
-
-    // --- GAMEPAD LOOP ---
-    window.addEventListener("gamepadconnected", () => { setInterval(updateLoop, 50); });
-
-    function updateLoop() {
-        const gp = navigator.getGamepads()[0];
-        if (!gp) return;
-        if (gp.buttons[14].pressed && !lastGong) { gongSon.currentTime = 0; gongSon.play().catch(()=>{}); }
-        lastGong = gp.buttons[14].pressed;
-        let pTri = gp.buttons[3].pressed, pL1 = gp.buttons[4].pressed, pR1 = gp.buttons[5].pressed;
-        if (pTri && !lastTri) currentBlinker = (currentBlinker === 'W') ? null : 'W';
-        else if (pL1 && !lastL1) currentBlinker = (currentBlinker === 'L' || currentBlinker === 'R' || currentBlinker === 'W') ? null : 'L';
-        else if (pR1 && !lastR1) currentBlinker = (currentBlinker === 'R' || currentBlinker === 'L' || currentBlinker === 'W') ? null : 'R';
-        if (pL1 !== lastL1 || pR1 !== lastR1 || pTri !== lastTri) updateBlinkerUI();
-        lastTri = pTri; lastL1 = pL1; lastR1 = pR1;
-        document.getElementById('fillL2').style.height = (gp.buttons[6].value * 100) + "%";
-        document.getElementById('fillR2').style.height = (gp.buttons[7].value * 100) + "%";
-        socket.emit('drive_cmd', { v: Math.round((gp.buttons[7].value - gp.buttons[6].value) * 255), d: Math.round(gp.axes[0] * 255), blinker: currentBlinker });
-    }
-
-    function updateBlinkerUI() {
-        const cam = document.getElementById('cam-card');
-        const dL = document.getElementById('dotL'), dR = document.getElementById('dotR');
-        cam.classList.remove('flash-L', 'flash-R', 'flash-W');
-        dL.classList.remove('active-dot'); dR.classList.remove('active-dot');
-        if (audioInterval) { clearInterval(audioInterval); audioInterval = null; }
-        tickSon.pause(); tickSon.currentTime = 0;
-        if (currentBlinker === 'L') { cam.classList.add('flash-L'); dL.classList.add('active-dot'); }
-        else if (currentBlinker === 'R') { cam.classList.add('flash-R'); dR.classList.add('active-dot'); }
-        else if (currentBlinker === 'W') { cam.classList.add('flash-W'); dL.classList.add('active-dot'); dR.classList.add('active-dot'); }
-        if (currentBlinker) {
-            tickSon.play().catch(()=>{});
-            audioInterval = setInterval(() => { tickSon.currentTime = 0; tickSon.play().catch(()=>{}); }, 800);
-        }
-    }
-
-    socket.on('map_update', (data) => {
-        const p = L.latLng(data.lat, data.lng);
-        robotMarker.setLatLng(p);
-        haloMarker.setLatLng(p);
-        document.getElementById('speed-display').innerText = Math.round(data.speed || 0);
-    });
 </script>
+
 </body>
 </html>
