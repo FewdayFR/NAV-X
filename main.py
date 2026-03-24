@@ -44,13 +44,8 @@ def handle_drive(data):
     
     # 1. GESTION DU KLAKSON (HORN)
     if data.get('horn'):
-        # On tente de jouer via Pygame ET via le système pour être sûr
-        if gong_sound:
-            try:
-                gong_sound.play()
-            except:
-                pass
-        # Backup via commande système Linux (paplay est très stable sur RPi)
+        # On utilise 'aplay' ou 'paplay' avec le chemin complet
+        # '&' permet de ne pas figer le robot pendant que le son joue
         os.system("paplay /home/fewday/navx/static/gong.mp3 &")
 
     # 2. CONVERSION CLIGNOTANTS
