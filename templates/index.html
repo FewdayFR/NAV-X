@@ -146,22 +146,38 @@
         const cam = document.getElementById('cam-card');
         const dL = document.getElementById('dotL'), dR = document.getElementById('dotR');
         
-        // Si on rappuie sur le même, on éteint. Sinon on change.
-        currentBlinker = (currentBlinker === m) ? 'OFF' : m;
+        // LOGIQUE D'ANNULATION :
+        // Si on appuie sur un bouton alors qu'un clignotant est DEJA actif (quel qu'il soit), on éteint tout.
+        if (currentBlinker !== 'OFF') {
+            currentBlinker = 'OFF';
+        } else {
+            // Si rien n'était actif, on allume celui demandé
+            currentBlinker = m;
+        }
 
-        // Reset Visuel
-        cam.classList.remove('flash-L', 'flash-R', 'flash-W');
-        dL.classList.remove('active-dot'); dR.classList.remove('active-dot');
-        if(bInterval) { clearInterval(bInterval); bInterval = null; tickSon.pause(); }
+        // Nettoyage visuel et sonore immédiat
+        cam.className = 'card camera-container'; // Reset des classes flash
+        dL.classList.remove('active-dot'); 
+        dR.classList.remove('active-dot');
+        
+        if(bInterval) { 
+            clearInterval(bInterval); 
+            bInterval = null; 
+            tickSon.pause(); 
+            tickSon.currentTime = 0; 
+        }
 
-        // Application du nouveau mode
+        // Activation si on n'est pas sur OFF
         if(currentBlinker !== 'OFF') {
             if(currentBlinker==='L') { cam.classList.add('flash-L'); dL.classList.add('active-dot'); }
             if(currentBlinker==='R') { cam.classList.add('flash-R'); dR.classList.add('active-dot'); }
             if(currentBlinker==='W') { cam.classList.add('flash-W'); dL.classList.add('active-dot'); dR.classList.add('active-dot'); }
             
             tickSon.play().catch(()=>{});
-            bInterval = setInterval(() => { tickSon.currentTime=0; tickSon.play().catch(()=>{}); }, 800);
+            bInterval = setInterval(() => { 
+                tickSon.currentTime=0; 
+                tickSon.play().catch(()=>{}); 
+            }, 800);
         }
     }
 
