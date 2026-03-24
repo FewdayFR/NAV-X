@@ -40,7 +40,7 @@ def handle_drive(data):
         # On autorise le son maximum toutes les 0.8 secondes
         if now - last_horn_time > 0.8:
             # -o alsa force la sortie vers le Jack sans passer par JACK/Pulse
-            os.system("mpg123 -o alsa /home/fewday/navx/static/gong.mp3 &")
+            os.system("mpg123 -o alsa:hw:1,0 /home/fewday/navx/static/gong.mp3 &")
             last_horn_time = now
 
     # --- CONVERSION CLIGNOTANTS ---
