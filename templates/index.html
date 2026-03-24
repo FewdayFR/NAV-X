@@ -1,75 +1,191 @@
 <!DOCTYPE html>
-<html>
+<html lang="fr">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>NAV-X</title>
+    <title>NAV-X Dashboard</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
     <style>
-        body { margin: 0; background: #0f0f0f; color: white; font-family: sans-serif; overflow: hidden; touch-action: none; }
-        .top-bar { height: 60px; background: #000; display: flex; align-items: center; justify-content: space-between; padding: 0 20px; border-bottom: 2px solid #333; }
-        .status-badge { padding: 5px 12px; border-radius: 20px; font-size: 12px; font-weight: bold; display: flex; align-items: center; gap: 8px; }
-        .status-online { background: rgba(0, 200, 81, 0.2); color: #00c851; border: 1px solid #00c851; }
-        .status-offline { background: rgba(255, 62, 62, 0.2); color: #ff4444; border: 1px solid #ff4444; }
+        :root {
+            --bg: #0f0f0f;
+            --accent: #ff3e3e;
+            --green: #00c851;
+            --white: #ffffff;
+            --grey: #1a1a1a;
+        }
+
+        body {
+            margin: 0; background: var(--bg); color: var(--white);
+            font-family: 'Segoe UI', sans-serif;
+            overflow: hidden; touch-action: none;
+        }
+
+        .top-bar {
+            height: 60px; background: #000; display: flex;
+            align-items: center; justify-content: space-between;
+            padding: 0 20px; border-bottom: 2px solid var(--grey);
+        }
+
+        .status-badge {
+            padding: 5px 12px; border-radius: 20px; font-size: 12px;
+            font-weight: bold; display: flex; align-items: center; gap: 8px;
+        }
+        .status-online { background: rgba(0, 200, 81, 0.2); color: var(--green); border: 1px solid var(--green); }
+        .status-offline { background: rgba(255, 64, 64, 0.2); color: var(--accent); border: 1px solid var(--accent); }
         .status-dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
-        .container { display: grid; grid-template-columns: 1fr 300px; height: calc(100vh - 60px); padding: 10px; gap: 10px; }
-        .main-view { background: #1a1a1a; border-radius: 10px; position: relative; }
-        .btn { background: #222; border: 1px solid #444; color: white; padding: 15px; border-radius: 8px; width: 100%; margin-bottom: 5px; cursor: pointer; }
-        .btn-active { background: #ff4444; }
-        #loader { position: fixed; inset: 0; background: #0f0f0f; display: flex; align-items: center; justify-content: center; z-index: 1000; }
+
+        .container {
+            display: grid; grid-template-columns: 1fr 300px;
+            height: calc(100vh - 60px); padding: 10px; gap: 10px;
+        }
+
+        .main-view { background: var(--grey); border-radius: 10px; position: relative; }
+        .control-card { background: var(--grey); border-radius: 10px; padding: 15px; text-align: center; border: 1px solid #333; margin-bottom: 10px;}
+
+        .btn {
+            background: #222; border: 1px solid #444; color: white;
+            padding: 15px; border-radius: 8px; cursor: pointer; font-weight: bold;
+            width: 100%; margin-bottom: 5px; transition: 0.1s;
+        }
+        .btn:active { background: var(--accent); }
+        .btn-active { background: var(--accent); border-color: var(--white); box-shadow: 0 0 10px var(--accent); }
+
+        #loader {
+            position: fixed; inset: 0; background: var(--bg);
+            display: flex; flex-direction: column; align-items: center;
+            justify-content: center; z-index: 1000;
+        }
+        .spinner {
+            width: 40px; height: 40px; border: 4px solid #333;
+            border-top: 4px solid var(--accent); border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
     </style>
 </head>
 <body>
 
-<div id="loader"><p>CHARGEMENT...</p></div>
+<div id="loader">
+    <div class="spinner"></div>
+    <p style="margin-top:15px; letter-spacing: 2px;">NAV-X SYSTEM</p>
+</div>
 
 <div class="top-bar">
-    <div id="esp-status" class="status-badge status-offline">
-        <div class="status-dot"></div>
-        <span id="status-text">ESP32 DISCONNECTED</span>
+    <div style="display: flex; align-items: center; gap: 15px;">
+        <div id="esp-status" class="status-badge status-offline">
+            <div class="status-dot"></div>
+            <span id="status-text">ESP32 DÉCONNECTÉ</span>
+        </div>
     </div>
-    <div style="color:#ff4444; font-weight: bold;">NAV-X SYSTEM</div>
+    <div style="color:var(--accent); font-weight: bold;">PANNEAU DE CONTRÔLE</div>
 </div>
 
 <div class="container">
-    <div class="main-view"></div>
+    <div class="main-view">
+        <div style="position:absolute; bottom:20px; left:20px; background:rgba(0,0,0,0.7); padding:10px; border-radius:5px; border-left:3px solid var(--accent);">
+            VITESSE: <span id="v-val" style="color:var(--accent)">0</span><br>
+            DIRECTION: <span id="d-val" style="color:var(--accent)">0</span>
+        </div>
+    </div>
+
     <div class="side-panel">
-        <button class="btn" onclick="setB('L')" id="btn-L">GAUCHE</button>
-        <button class="btn" onclick="setB('R')" id="btn-R">DROIT</button>
-        <button class="btn" onclick="setB('W')" id="btn-W">WARNING</button>
-        <button class="btn" onmousedown="setH(true)" onmouseup="setH(false)">KLAXON</button>
+        <div class="control-card">
+            <h3 style="font-size:12px; color:#666;">ÉCLAIRAGE</h3>
+            <button class="btn" onclick="setBlinker('L')" id="btn-L">GAUCHE</button>
+            <button class="btn" onclick="setBlinker('R')" id="btn-R">DROIT</button>
+            <button class="btn" onclick="setBlinker('W')" id="btn-W">WARNINGS</button>
+        </div>
+
+        <div class="control-card">
+            <h3 style="font-size:12px; color:#666;">SYSTÈME</h3>
+            <button class="btn" 
+                onmousedown="setHorn(true)" onmouseup="setHorn(false)" 
+                ontouchstart="setHorn(true)" ontouchend="setHorn(false)">
+                KLAXON (GONG)
+            </button>
+        </div>
     </div>
 </div>
 
 <script>
     const socket = io();
-    let bMode = 'OFF', hAct = false, lastS = 0;
-    let keys = {};
+    let currentBlinker = 'OFF';
+    let hornActive = false;
+    let lastSendTime = 0;
+    
+    // Pour l'optimisation : on ne renvoie pas si rien n'a changé
+    let lastV = 0, lastD = 0, lastB = 'OFF', lastH = false;
 
-    socket.on('connect', () => document.getElementById('loader').style.display='none');
-    socket.on('esp_status', (d) => {
-        const b = document.getElementById('esp-status');
-        b.className = d.connected ? "status-badge status-online" : "status-badge status-offline";
-        document.getElementById('status-text').innerText = d.connected ? "ESP32 CONNECTED" : "ESP32 DISCONNECTED";
+    socket.on('connect', () => {
+        document.getElementById('loader').style.display = 'none';
     });
 
-    window.onkeydown = (e) => { keys[e.key.toLowerCase()] = true; drive(); };
-    window.onkeyup = (e) => { keys[e.key.toLowerCase()] = false; drive(); };
+    socket.on('esp_status', (data) => {
+        const badge = document.getElementById('esp-status');
+        const text = document.getElementById('status-text');
+        badge.className = data.connected ? "status-badge status-online" : "status-badge status-offline";
+        text.innerText = data.connected ? "ESP32 CONNECTÉ" : "ESP32 DÉCONNECTÉ";
+    });
 
-    function setB(m) { bMode = (bMode === m) ? 'OFF' : m; drive(); }
-    function setH(s) { hAct = s; drive(); }
+    let keys = {};
+    window.onkeydown = (e) => { keys[e.key.toLowerCase()] = true; updateDrive(); };
+    window.onkeyup = (e) => { keys[e.key.toLowerCase()] = false; updateDrive(); };
 
-    function drive() {
+    function updateDrive() {
         let v = 0, d = 0;
-        if (keys['z']) v = 255; if (keys['s']) v = -255;
-        if (keys['q']) d = -255; if (keys['d']) d = 255;
+        if (keys['z'] || keys['w']) v = 255;
+        if (keys['s']) v = -255;
+        if (keys['q'] || keys['a']) d = -255;
+        if (keys['d']) d = 255;
         
+        document.getElementById('v-val').innerText = v;
+        document.getElementById('d-val').innerText = d;
+        
+        sendData(v, d, false); // false = pas forcé
+    }
+
+    function setBlinker(mode) {
+        currentBlinker = (currentBlinker === mode) ? 'OFF' : mode;
+        ['L', 'R', 'W'].forEach(m => {
+            document.getElementById('btn-'+m).classList.toggle('btn-active', currentBlinker === m);
+        });
+        sendData(lastV, lastD, true); // true = envoi forcé immédiat
+    }
+
+    function setHorn(state) {
+        hornActive = state;
+        sendData(lastV, lastD, true);
+    }
+
+    function sendData(v, d, force) {
         const now = Date.now();
-        if (now - lastS > 50) { // LIMITATEUR ANTI-LATENCE
-            socket.emit('drive_cmd', {v:v, d:d, blinker:bMode, horn:hAct});
-            lastS = now;
+        
+        // Optimisation 1 : On ne renvoie pas la même chose en boucle (économie de bande passante 4G)
+        if (!force && v === lastV && d === lastD && currentBlinker === lastB && hornActive === lastH) {
+            return;
+        }
+
+        // Optimisation 2 : Limiteur de débit (50ms) sauf si action critique (klaxon/cligno)
+        if (force || (now - lastSendTime > 50)) {
+            socket.emit('drive_cmd', {
+                v: v, 
+                d: d, 
+                blinker: currentBlinker, 
+                horn: hornActive
+            });
+            
+            lastSendTime = now;
+            lastV = v; lastD = d; lastB = currentBlinker; lastH = hornActive;
         }
     }
+
+    // Sécurité : si on lâche les touches, on s'assure que le robot s'arrête
+    setInterval(() => {
+        if (!keys['z'] && !keys['s'] && !keys['q'] && !keys['d'] && (lastV !== 0 || lastD !== 0)) {
+            updateDrive();
+        }
+    }, 100);
 </script>
+
 </body>
 </html>
