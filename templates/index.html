@@ -3,94 +3,62 @@
 <head>
     <meta charset="UTF-8">
     <title>NAV-X Dashboard - TRANSNODE</title>
-    <link rel="icon" type="image/x-icon" href="/static/ico.ico">
-    
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link rel="stylesheet" href="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.css" />
-    
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.js"></script>
     
     <style>
-        :root {
-            --bg: #080808; --card: #141414; --accent: #00d4ff; --text: #ffffff;
-            --orange: #ff9800; --red: #ff4444; --green: #00c851;
-        }
-        body { background: var(--bg); color: var(--text); font-family: 'Inter', sans-serif; margin: 0; padding: 15px; overflow: hidden; }
+        :root { --bg: #080808; --card: #141414; --accent: #00d4ff; --orange: #ff9800; }
+        body { background: var(--bg); color: white; font-family: 'Segoe UI', sans-serif; margin: 0; padding: 15px; overflow: hidden; }
         
-        #loader { position: fixed; inset: 0; background: var(--bg); z-index: 10000; display: flex; align-items: center; justify-content: center; }
-
+        /* GRID LAYOUT */
         .dashboard-grid { display: grid; grid-template-columns: 1fr 2fr; grid-template-rows: 65vh 180px; gap: 15px; max-width: 1800px; margin: 0 auto; }
         .card { background: var(--card); border-radius: 20px; border: 1px solid #252525; position: relative; overflow: hidden; }
 
+        /* MAP & FLUID MOVEMENTS */
         #map { width: 100%; height: 100%; background: #111; }
+        .leaflet-fade-anim .leaflet-tile,.leaflet-zoom-anim .leaflet-zoom-animated { transition: opacity 0.5s linear; }
+        .robot-halo { background: rgba(0, 212, 255, 0.1); border-radius: 50%; pointer-events: none; transition: all 0.5s ease-out; }
         
-        /* HALO ET POPUP */
-        .robot-halo { background: rgba(0, 212, 255, 0.1); border-radius: 50%; pointer-events: none; }
-        #dest-popup {
-            position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            z-index: 9999; background: rgba(20, 20, 20, 0.95); border: 2px solid var(--accent);
-            padding: 20px; border-radius: 20px; text-align: center; display: none; width: 400px;
-        }
-
-        /* EFFETS CAMERA CLIGNOTANTS */
+        /* CAMERA & BLINKERS */
         .camera-container { position: relative; background: #000; }
-        .reflet { 
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
-            pointer-events: none; opacity: 0; z-index: 5; transition: opacity 0.1s;
-        }
+        .reflet { position: absolute; inset: 0; pointer-events: none; opacity: 0; z-index: 5; }
         @keyframes blink-anim { 0% { opacity: 0; } 50% { opacity: 1; } 100% { opacity: 0; } }
-        
         .flash-L .reflet { opacity: 1; background: radial-gradient(circle at 0% 50%, var(--orange) 0%, transparent 70%); animation: blink-anim 0.8s infinite; }
         .flash-R .reflet { opacity: 1; background: radial-gradient(circle at 100% 50%, var(--orange) 0%, transparent 70%); animation: blink-anim 0.8s infinite; }
         .flash-W .reflet { opacity: 1; background: linear-gradient(90deg, var(--orange) 0%, transparent 50%, var(--orange) 100%); animation: blink-anim 0.8s infinite; }
 
-        .speed-overlay {
-            position: absolute; bottom: 20px; left: 20px; z-index: 10;
-            background: rgba(0,0,0,0.8); padding: 12px 20px; border-radius: 15px; border: 1px solid var(--accent);
-        }
-        .speed-val { font-size: 38px; font-weight: 900; color: var(--accent); display: block; }
+        .speed-overlay { position: absolute; bottom: 20px; left: 20px; z-index: 10; background: rgba(0,0,0,0.8); padding: 12px 20px; border-radius: 15px; border: 1px solid var(--accent); }
+        .speed-val { font-size: 38px; font-weight: 900; color: var(--accent); }
 
         .controls { grid-column: 1 / span 2; display: grid; grid-template-columns: 150px 1fr 150px; align-items: center; padding: 0 40px; }
         .track { width: 12px; height: 100px; background: #222; border-radius: 6px; position: relative; overflow: hidden; }
-        .fill { width: 100%; position: absolute; bottom: 0; }
+        .fill { width: 100%; position: absolute; bottom: 0; transition: height 0.1s; }
         .dot { width: 45px; height: 45px; border: 2px solid #333; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 20px; color: #333; }
         .active-dot { border-color: var(--orange); color: var(--orange); box-shadow: 0 0 15px var(--orange); animation: blink-anim 0.8s infinite; }
     </style>
 </head>
 <body>
 
-<div id="loader"><h2 style="color:var(--accent)">NAV-X...</h2></div>
-
-<div id="dest-popup">
-    <h3 id="pop-addr" style="color:var(--accent)">DESTINATION</h3>
-    <button onclick="closePopup(false)" style="padding:10px; margin:5px;">ANNULER</button>
-    <button onclick="closePopup(true)" style="padding:10px; margin:5px; background:var(--accent)">GO</button>
-</div>
-
 <div class="dashboard-grid">
     <div class="card"><div id="map"></div></div>
-    
     <div id="cam-card" class="card camera-container">
         <img id="video-feed" src="/video_feed" style="width:100%; height:100%; object-fit:cover;">
         <div class="reflet"></div>
-        <div class="speed-overlay">
-            <span id="speed-display" class="speed-val">0</span>
-            <span style="font-size:10px; color:#aaa">KM/H</span>
-        </div>
+        <div class="speed-overlay"><span id="speed-display" class="speed-val">0</span><span style="font-size:10px; color:#aaa"> KM/H</span></div>
     </div>
-
     <div class="card controls">
-        <div class="track"><div id="fillL2" class="fill" style="background:var(--red)"></div></div>
+        <div class="track"><div id="fillL2" class="fill" style="background:var(--orange)"></div></div>
         <div style="text-align: center;">
-            <div style="display:flex; justify-content:center; gap:60px;">
+            <div style="display:flex; justify-content:center; gap:60px; margin-bottom:10px;">
                 <div id="dotL" class="dot">◀</div>
                 <div id="dotR" class="dot">▶</div>
             </div>
-            <h1 style="margin:10px 0; color:var(--accent);">NAV-X</h1>
+            <h1 style="margin:0; color:var(--accent); letter-spacing: 5px;">NAV-X</h1>
         </div>
-        <div class="track"><div id="fillR2" class="fill" style="background:var(--green)"></div></div>
+        <div class="track"><div id="fillR2" class="fill" style="background:var(--accent)"></div></div>
     </div>
 </div>
 
@@ -100,91 +68,76 @@
     const gongSon = new Audio('/static/gong.mp3');
     
     let robotPos = [43.2951, -0.3708], currentBlinker = 'OFF', lastSend = 0;
+    let routeCoords = []; // Pour le tracé
 
-    // --- MAPS ---
-    const map = L.map('map', {zoomControl: false}).setView(robotPos, 17);
+    // --- INITIALISATION CARTE ---
+    const map = L.map('map', { zoomControl: false, fadeAnimation: true }).setView(robotPos, 18);
     L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png').addTo(map);
-    const haloMarker = L.marker(robotPos, {icon: L.divIcon({className:'robot-halo', iconSize:[60,60]})}).addTo(map);
-    const robotMarker = L.marker(robotPos, {icon: L.icon({iconUrl:'/static/ico.png', iconSize:[50,50], iconAnchor:[25,38]})}).addTo(map);
 
-    L.Control.geocoder({defaultMarkGeocode:false}).on('markgeocode', e => {
-        map.panTo(e.geocode.center);
-    }).addTo(map);
+    // Tracé de la route
+    const polyline = L.polyline([], {color: 'var(--accent)', weight: 4, opacity: 0.6, smoothFactor: 1}).addTo(map);
+    
+    // Marqueurs avec transitions fluides
+    const haloM = L.marker(robotPos, {icon: L.divIcon({className:'robot-halo', iconSize:[60,60]})}).addTo(map);
+    const robotM = L.marker(robotPos, {icon: L.icon({iconUrl:'/static/ico.png', iconSize:[50,50], iconAnchor:[25,38]})}).addTo(map);
 
-    // --- LOGIQUE CLIGNOTANTS & GAMEPAD ---
+    L.Control.geocoder({defaultMarkGeocode:false}).on('markgeocode', e => map.panTo(e.geocode.center, {animate: true})).addTo(map);
+
+    // --- CONTROLES ---
     let lastB1=false, lastB2=false, lastB3=false, lastH=false, bInterval=null;
 
     function update() {
         const gp = navigator.getGamepads()[0];
         if(!gp) return requestAnimationFrame(update);
 
-        // Système de bascule (Toggle)
-        if(gp.buttons[4].pressed && !lastB1) toggleB('L'); // L1
-        if(gp.buttons[5].pressed && !lastB2) toggleB('R'); // R1
-        if(gp.buttons[3].pressed && !lastB3) toggleB('W'); // Triangle
+        if(gp.buttons[4].pressed && !lastB1) toggleB('L');
+        if(gp.buttons[5].pressed && !lastB2) toggleB('R');
+        if(gp.buttons[3].pressed && !lastB3) toggleB('W');
         if(gp.buttons[14].pressed && !lastH) { gongSon.currentTime=0; gongSon.play().catch(()=>{}); }
 
         lastB1=gp.buttons[4].pressed; lastB2=gp.buttons[5].pressed; lastB3=gp.buttons[3].pressed; lastH=gp.buttons[14].pressed;
-
+        
         document.getElementById('fillL2').style.height = (gp.buttons[6].value * 100) + "%";
         document.getElementById('fillR2').style.height = (gp.buttons[7].value * 100) + "%";
 
         const now = Date.now();
         if(now - lastSend > 50) {
-            socket.emit('drive_cmd', {
-                v: Math.round((gp.buttons[7].value - gp.buttons[6].value) * 255),
-                d: Math.round(gp.axes[0] * 255),
-                blinker: currentBlinker,
-                horn: lastH
-            });
+            socket.emit('drive_cmd', { v: Math.round((gp.buttons[7].value - gp.buttons[6].value) * 255), d: Math.round(gp.axes[0] * 255), blinker: currentBlinker, horn: lastH });
             lastSend = now;
         }
         requestAnimationFrame(update);
     }
 
     function toggleB(m) {
-        const cam = document.getElementById('cam-card');
-        const dL = document.getElementById('dotL'), dR = document.getElementById('dotR');
-        
-        // LOGIQUE D'ANNULATION :
-        // Si on appuie sur un bouton alors qu'un clignotant est DEJA actif (quel qu'il soit), on éteint tout.
-        if (currentBlinker !== 'OFF') {
-            currentBlinker = 'OFF';
-        } else {
-            // Si rien n'était actif, on allume celui demandé
-            currentBlinker = m;
-        }
-
-        // Nettoyage visuel et sonore immédiat
-        cam.className = 'card camera-container'; // Reset des classes flash
-        dL.classList.remove('active-dot'); 
-        dR.classList.remove('active-dot');
-        
-        if(bInterval) { 
-            clearInterval(bInterval); 
-            bInterval = null; 
-            tickSon.pause(); 
-            tickSon.currentTime = 0; 
-        }
-
-        // Activation si on n'est pas sur OFF
+        const cam = document.getElementById('cam-card'), dL = document.getElementById('dotL'), dR = document.getElementById('dotR');
+        currentBlinker = (currentBlinker !== 'OFF') ? 'OFF' : m;
+        cam.className = 'card camera-container';
+        dL.classList.remove('active-dot'); dR.classList.remove('active-dot');
+        if(bInterval) { clearInterval(bInterval); bInterval = null; tickSon.pause(); }
         if(currentBlinker !== 'OFF') {
             if(currentBlinker==='L') { cam.classList.add('flash-L'); dL.classList.add('active-dot'); }
             if(currentBlinker==='R') { cam.classList.add('flash-R'); dR.classList.add('active-dot'); }
             if(currentBlinker==='W') { cam.classList.add('flash-W'); dL.classList.add('active-dot'); dR.classList.add('active-dot'); }
-            
             tickSon.play().catch(()=>{});
-            bInterval = setInterval(() => { 
-                tickSon.currentTime=0; 
-                tickSon.play().catch(()=>{}); 
-            }, 800);
+            bInterval = setInterval(() => { tickSon.currentTime=0; tickSon.play().catch(()=>{}); }, 800);
         }
     }
 
-    socket.on('connect', () => document.getElementById('loader').style.display='none');
+    // --- RECEPTION GPS & CENTRAGE ---
     socket.on('map_update', d => {
         const p = [d.lat, d.lng];
-        robotMarker.setLatLng(p); haloMarker.setLatLng(p);
+        
+        // Mise à jour fluide du tracé
+        routeCoords.push(p);
+        polyline.setLatLngs(routeCoords);
+
+        // Centrage automatique avec glissement (panTo)
+        map.panTo(p, { animate: true, duration: 1.0 });
+        
+        // Déplacement fluide du robot
+        robotM.setLatLng(p);
+        haloM.setLatLng(p);
+
         document.getElementById('speed-display').innerText = Math.round(d.speed || 0);
     });
 
