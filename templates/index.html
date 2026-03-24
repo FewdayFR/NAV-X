@@ -2,190 +2,163 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>NAV-X Dashboard</title>
+    <title>NAV-X Dashboard - TRANSNODE</title>
+    <link rel="icon" type="image/x-icon" href="/static/ico.ico">
+    
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.css" />
+    
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.js"></script>
+    
     <style>
         :root {
-            --bg: #0f0f0f;
-            --accent: #ff3e3e;
-            --green: #00c851;
-            --white: #ffffff;
-            --grey: #1a1a1a;
+            --bg: #080808; --card: #141414; --accent: #00d4ff; --text: #ffffff;
+            --orange: #ff9800; --red: #ff4444; --green: #00c851;
         }
-
-        body {
-            margin: 0; background: var(--bg); color: var(--white);
-            font-family: 'Segoe UI', sans-serif;
-            overflow: hidden; touch-action: none;
-        }
-
-        .top-bar {
-            height: 60px; background: #000; display: flex;
-            align-items: center; justify-content: space-between;
-            padding: 0 20px; border-bottom: 2px solid var(--grey);
-        }
-
-        .status-badge {
-            padding: 5px 12px; border-radius: 20px; font-size: 12px;
-            font-weight: bold; display: flex; align-items: center; gap: 8px;
-        }
-        .status-online { background: rgba(0, 200, 81, 0.2); color: var(--green); border: 1px solid var(--green); }
-        .status-offline { background: rgba(255, 64, 64, 0.2); color: var(--accent); border: 1px solid var(--accent); }
-        .status-dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
-
-        .container {
-            display: grid; grid-template-columns: 1fr 300px;
-            height: calc(100vh - 60px); padding: 10px; gap: 10px;
-        }
-
-        .main-view { background: var(--grey); border-radius: 10px; position: relative; }
-        .control-card { background: var(--grey); border-radius: 10px; padding: 15px; text-align: center; border: 1px solid #333; margin-bottom: 10px;}
-
-        .btn {
-            background: #222; border: 1px solid #444; color: white;
-            padding: 15px; border-radius: 8px; cursor: pointer; font-weight: bold;
-            width: 100%; margin-bottom: 5px; transition: 0.1s;
-        }
-        .btn:active { background: var(--accent); }
-        .btn-active { background: var(--accent); border-color: var(--white); box-shadow: 0 0 10px var(--accent); }
-
+        body { background: var(--bg); color: var(--text); font-family: 'Inter', sans-serif; margin: 0; padding: 15px; overflow: hidden; }
+        
         #loader {
-            position: fixed; inset: 0; background: var(--bg);
-            display: flex; flex-direction: column; align-items: center;
-            justify-content: center; z-index: 1000;
+            position: fixed; inset: 0; background: var(--bg); z-index: 10000;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
         }
-        .spinner {
-            width: 40px; height: 40px; border: 4px solid #333;
-            border-top: 4px solid var(--accent); border-radius: 50%;
-            animation: spin 0.8s linear infinite;
+        .loader-dots { display: flex; gap: 8px; margin-top: 20px; }
+        .dot-load { width: 12px; height: 12px; background: var(--accent); border-radius: 50%; animation: bounce 0.6s infinite alternate; }
+        @keyframes bounce { from { transform: translateY(0); } to { transform: translateY(-15px); } }
+
+        .top-bar { display: flex; align-items: center; justify-content: space-between; padding-bottom: 10px; }
+        .navx-logo { height: 40px; filter: drop-shadow(0 0 5px var(--accent)); }
+
+        .dashboard-grid { display: grid; grid-template-columns: 1fr 2fr; grid-template-rows: 65vh 180px; gap: 15px; max-width: 1800px; margin: 0 auto; }
+        .card { background: var(--card); border-radius: 20px; border: 1px solid #252525; position: relative; overflow: hidden; }
+
+        #map { width: 100%; height: 100%; background: #111; }
+        
+        .speed-overlay {
+            position: absolute; bottom: 20px; left: 20px; z-index: 10;
+            background: rgba(0,0,0,0.8); padding: 12px 20px; border-radius: 15px; border: 1px solid var(--accent);
         }
-        @keyframes spin { to { transform: rotate(360deg); } }
+        .speed-val { font-size: 38px; font-weight: 900; color: var(--accent); display: block; line-height: 1; }
+
+        .controls { grid-column: 1 / span 2; display: grid; grid-template-columns: 150px 1fr 150px; align-items: center; padding: 0 40px; }
+        .track { width: 12px; height: 100px; background: #222; border-radius: 6px; position: relative; overflow: hidden; }
+        .fill { width: 100%; position: absolute; bottom: 0; }
+        #fillL2 { background: var(--red); }
+        #fillR2 { background: var(--green); }
+        .dot { width: 45px; height: 45px; border: 2px solid #333; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 20px; color: #333; }
+        .active-dot { border-color: var(--orange); color: var(--orange); box-shadow: 0 0 15px var(--orange); animation: blink-anim 0.8s infinite; }
+        @keyframes blink-anim { 0% { opacity: 0; } 50% { opacity: 1; } 100% { opacity: 0; } }
     </style>
 </head>
 <body>
 
 <div id="loader">
-    <div class="spinner"></div>
-    <p style="margin-top:15px; letter-spacing: 2px;">NAV-X SYSTEM</p>
+    <img src="/static/logo.png" style="height:80px;">
+    <div class="loader-dots"><div class="dot-load"></div><div class="dot-load"></div><div class="dot-load"></div></div>
 </div>
 
 <div class="top-bar">
-    <div style="display: flex; align-items: center; gap: 15px;">
-        <div id="esp-status" class="status-badge status-offline">
-            <div class="status-dot"></div>
-            <span id="status-text">ESP32 DÉCONNECTÉ</span>
-        </div>
-    </div>
-    <div style="color:var(--accent); font-weight: bold;">PANNEAU DE CONTRÔLE</div>
+    <img src="/static/logo.png" class="navx-logo">
+    <div id="status-badge" style="color:var(--red);">● DÉCONNECTÉ</div>
 </div>
 
-<div class="container">
-    <div class="main-view">
-        <div style="position:absolute; bottom:20px; left:20px; background:rgba(0,0,0,0.7); padding:10px; border-radius:5px; border-left:3px solid var(--accent);">
-            VITESSE: <span id="v-val" style="color:var(--accent)">0</span><br>
-            DIRECTION: <span id="d-val" style="color:var(--accent)">0</span>
+<div class="dashboard-grid">
+    <div class="card"><div id="map"></div></div>
+    
+    <div id="cam-card" class="card">
+        <img id="video-feed" src="/video_feed" style="width:100%; height:100%; object-fit:cover;">
+        <div class="speed-overlay">
+            <span id="speed-display" class="speed-val">0</span>
+            <span style="font-size:10px; color:#aaa">KM/H</span>
         </div>
     </div>
 
-    <div class="side-panel">
-        <div class="control-card">
-            <h3 style="font-size:12px; color:#666;">ÉCLAIRAGE</h3>
-            <button class="btn" onclick="setBlinker('L')" id="btn-L">GAUCHE</button>
-            <button class="btn" onclick="setBlinker('R')" id="btn-R">DROIT</button>
-            <button class="btn" onclick="setBlinker('W')" id="btn-W">WARNINGS</button>
+    <div class="card controls">
+        <div style="text-align:center;"><div class="track"><div id="fillL2" class="fill"></div></div></div>
+        <div style="text-align: center;">
+            <div style="display:flex; justify-content:center; gap:60px;">
+                <div id="dotL" class="dot">◀</div>
+                <div id="dotR" class="dot">▶</div>
+            </div>
+            <h2 id="conn-text" style="color:var(--accent); margin:10px 0;">NAV-X READY</h2>
         </div>
-
-        <div class="control-card">
-            <h3 style="font-size:12px; color:#666;">SYSTÈME</h3>
-            <button class="btn" 
-                onmousedown="setHorn(true)" onmouseup="setHorn(false)" 
-                ontouchstart="setHorn(true)" ontouchend="setHorn(false)">
-                KLAXON (GONG)
-            </button>
-        </div>
+        <div style="text-align:center;"><div class="track"><div id="fillR2" class="fill"></div></div></div>
     </div>
 </div>
 
 <script>
     const socket = io();
+    let lastSend = 0;
     let currentBlinker = 'OFF';
-    let hornActive = false;
-    let lastSendTime = 0;
-    
-    // Pour l'optimisation : on ne renvoie pas si rien n'a changé
-    let lastV = 0, lastD = 0, lastB = 'OFF', lastH = false;
+    let robotPos = [43.2951, -0.3708];
 
+    // --- INITIALISATION MAP ---
+    const map = L.map('map', {zoomControl: false}).setView(robotPos, 17);
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png').addTo(map);
+    const robotIcon = L.icon({ iconUrl: '/static/ico.png', iconSize: [50, 50], iconAnchor: [25, 38] });
+    const marker = L.marker(robotPos, {icon: robotIcon}).addTo(map);
+
+    // --- SOCKET EVENTS ---
     socket.on('connect', () => {
         document.getElementById('loader').style.display = 'none';
+        document.getElementById('status-badge').style.color = 'var(--green)';
+        document.getElementById('status-badge').innerText = '● CONNECTÉ';
     });
 
-    socket.on('esp_status', (data) => {
-        const badge = document.getElementById('esp-status');
-        const text = document.getElementById('status-text');
-        badge.className = data.connected ? "status-badge status-online" : "status-badge status-offline";
-        text.innerText = data.connected ? "ESP32 CONNECTÉ" : "ESP32 DÉCONNECTÉ";
+    socket.on('map_update', (data) => {
+        const newPos = [data.lat, data.lng];
+        marker.setLatLng(newPos);
+        map.panTo(newPos);
+        document.getElementById('speed-display').innerText = Math.round(data.speed || 0);
     });
 
-    let keys = {};
-    window.onkeydown = (e) => { keys[e.key.toLowerCase()] = true; updateDrive(); };
-    window.onkeyup = (e) => { keys[e.key.toLowerCase()] = false; updateDrive(); };
+    // --- GAMEPAD & CONTROL LOOP ---
+    let lastB1 = false, lastB2 = false, lastB3 = false;
 
-    function updateDrive() {
-        let v = 0, d = 0;
-        if (keys['z'] || keys['w']) v = 255;
-        if (keys['s']) v = -255;
-        if (keys['q'] || keys['a']) d = -255;
-        if (keys['d']) d = 255;
+    function update() {
+        const gamepads = navigator.getGamepads();
+        const gp = gamepads[0];
+        if (!gp) return requestAnimationFrame(update);
+
+        // Détection changements clignotants (Boutons L1, R1, Triangle)
+        if (gp.buttons[4].pressed && !lastB1) toggleBlinker('L');
+        if (gp.buttons[5].pressed && !lastB2) toggleBlinker('R');
+        if (gp.buttons[3].pressed && !lastB3) toggleBlinker('W');
         
-        document.getElementById('v-val').innerText = v;
-        document.getElementById('d-val').innerText = d;
-        
-        sendData(v, d, false); // false = pas forcé
-    }
+        lastB1 = gp.buttons[4].pressed;
+        lastB2 = gp.buttons[5].pressed;
+        lastB3 = gp.buttons[3].pressed;
 
-    function setBlinker(mode) {
-        currentBlinker = (currentBlinker === mode) ? 'OFF' : mode;
-        ['L', 'R', 'W'].forEach(m => {
-            document.getElementById('btn-'+m).classList.toggle('btn-active', currentBlinker === m);
-        });
-        sendData(lastV, lastD, true); // true = envoi forcé immédiat
-    }
+        // Visualisation Jauges Gaz/Frein
+        document.getElementById('fillL2').style.height = (gp.buttons[6].value * 100) + "%";
+        document.getElementById('fillR2').style.height = (gp.buttons[7].value * 100) + "%";
 
-    function setHorn(state) {
-        hornActive = state;
-        sendData(lastV, lastD, true);
-    }
-
-    function sendData(v, d, force) {
+        // LIMITATEUR D'ENVOI (50ms)
         const now = Date.now();
-        
-        // Optimisation 1 : On ne renvoie pas la même chose en boucle (économie de bande passante 4G)
-        if (!force && v === lastV && d === lastD && currentBlinker === lastB && hornActive === lastH) {
-            return;
+        if (now - lastSend > 50) {
+            const v = Math.round((gp.buttons[7].value - gp.buttons[6].value) * 255);
+            const d = Math.round(gp.axes[0] * 255);
+            const h = gp.buttons[14].pressed; // Klaxon sur bouton tactile ou bas
+            
+            socket.emit('drive_cmd', { v: v, d: d, blinker: currentBlinker, horn: h });
+            lastSend = now;
         }
 
-        // Optimisation 2 : Limiteur de débit (50ms) sauf si action critique (klaxon/cligno)
-        if (force || (now - lastSendTime > 50)) {
-            socket.emit('drive_cmd', {
-                v: v, 
-                d: d, 
-                blinker: currentBlinker, 
-                horn: hornActive
-            });
-            
-            lastSendTime = now;
-            lastV = v; lastD = d; lastB = currentBlinker; lastH = hornActive;
-        }
+        requestAnimationFrame(update);
     }
 
-    // Sécurité : si on lâche les touches, on s'assure que le robot s'arrête
-    setInterval(() => {
-        if (!keys['z'] && !keys['s'] && !keys['q'] && !keys['d'] && (lastV !== 0 || lastD !== 0)) {
-            updateDrive();
-        }
-    }, 100);
-</script>
+    function toggleBlinker(mode) {
+        currentBlinker = (currentBlinker === mode) ? 'OFF' : mode;
+        document.getElementById('dotL').classList.toggle('active-dot', currentBlinker === 'L' || currentBlinker === 'W');
+        document.getElementById('dotR').classList.toggle('active-dot', currentBlinker === 'R' || currentBlinker === 'W');
+    }
 
+    window.addEventListener("gamepadconnected", () => {
+        console.log("Gamepad OK");
+        requestAnimationFrame(update);
+    });
+
+</script>
 </body>
 </html>
