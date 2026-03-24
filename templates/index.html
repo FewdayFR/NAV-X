@@ -8,9 +8,11 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.css" />
     
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.js"></script>
+    <script src="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.js"></script>
     
     <style>
         :root {
@@ -23,48 +25,69 @@
             position: fixed; inset: 0; background: var(--bg); z-index: 10000;
             display: flex; flex-direction: column; align-items: center; justify-content: center;
         }
-        .loader-dots { display: flex; gap: 8px; margin-top: 20px; }
-        .dot-load { width: 12px; height: 12px; background: var(--accent); border-radius: 50%; animation: bounce 0.6s infinite alternate; }
-        @keyframes bounce { from { transform: translateY(0); } to { transform: translateY(-15px); } }
-
-        .top-bar { display: flex; align-items: center; justify-content: space-between; padding-bottom: 10px; }
-        .navx-logo { height: 40px; filter: drop-shadow(0 0 5px var(--accent)); }
 
         .dashboard-grid { display: grid; grid-template-columns: 1fr 2fr; grid-template-rows: 65vh 180px; gap: 15px; max-width: 1800px; margin: 0 auto; }
         .card { background: var(--card); border-radius: 20px; border: 1px solid #252525; position: relative; overflow: hidden; }
 
         #map { width: 100%; height: 100%; background: #111; }
         
+        /* POPUP DESTINATION */
+        #dest-popup {
+            position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            z-index: 9999; background: rgba(20, 20, 20, 0.95); border: 2px solid var(--accent);
+            padding: 20px; border-radius: 20px; text-align: center; display: none;
+            backdrop-filter: blur(15px); width: 400px;
+        }
+        #mini-map { width: 100%; height: 200px; border-radius: 10px; margin: 10px 0; pointer-events: none; }
+        .btn-pop { padding: 10px 20px; border-radius: 8px; cursor: pointer; font-weight: bold; border: none; margin: 5px; }
+        .btn-go { background: var(--accent); color: #000; }
+
+        /* HALO ROBOT (10% OPACITÉ) */
+        .robot-halo { 
+            background: rgba(0, 212, 255, 0.1); /* 10% Bleu */
+            border: 1px solid rgba(0, 212, 255, 0.2); 
+            border-radius: 50%; pointer-events: none; 
+        }
+
+        .map-selector {
+            position: absolute; bottom: 10px; left: 10px; z-index: 1000;
+            display: flex; gap: 5px; background: rgba(0,0,0,0.7); padding: 5px; border-radius: 5px;
+        }
+        .map-selector button { background: none; border: 1px solid #444; color: white; cursor: pointer; font-size: 10px; }
+        .map-selector button.active { border-color: var(--accent); color: var(--accent); }
+
         .speed-overlay {
             position: absolute; bottom: 20px; left: 20px; z-index: 10;
             background: rgba(0,0,0,0.8); padding: 12px 20px; border-radius: 15px; border: 1px solid var(--accent);
         }
-        .speed-val { font-size: 38px; font-weight: 900; color: var(--accent); display: block; line-height: 1; }
+        .speed-val { font-size: 38px; font-weight: 900; color: var(--accent); display: block; }
 
         .controls { grid-column: 1 / span 2; display: grid; grid-template-columns: 150px 1fr 150px; align-items: center; padding: 0 40px; }
         .track { width: 12px; height: 100px; background: #222; border-radius: 6px; position: relative; overflow: hidden; }
         .fill { width: 100%; position: absolute; bottom: 0; }
-        #fillL2 { background: var(--red); }
-        #fillR2 { background: var(--green); }
         .dot { width: 45px; height: 45px; border: 2px solid #333; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 20px; color: #333; }
-        .active-dot { border-color: var(--orange); color: var(--orange); box-shadow: 0 0 15px var(--orange); animation: blink-anim 0.8s infinite; }
-        @keyframes blink-anim { 0% { opacity: 0; } 50% { opacity: 1; } 100% { opacity: 0; } }
+        .active-dot { border-color: var(--orange); color: var(--orange); box-shadow: 0 0 10px var(--orange); }
     </style>
 </head>
 <body>
 
-<div id="loader">
-    <img src="/static/logo.png" style="height:80px;">
-    <div class="loader-dots"><div class="dot-load"></div><div class="dot-load"></div><div class="dot-load"></div></div>
-</div>
+<div id="loader"><h2 style="color:var(--accent)">NAV-X INITIALISATION...</h2></div>
 
-<div class="top-bar">
-    <img src="/static/logo.png" class="navx-logo">
-    <div id="status-badge" style="color:var(--red);">● DÉCONNECTÉ</div>
+<div id="dest-popup">
+    <h3 id="pop-addr" style="color:var(--accent); margin:0;">DESTINATION</h3>
+    <div id="mini-map"></div>
+    <button class="btn-pop" onclick="closePopup(false)" style="background:#333; color:white;">ANNULER</button>
+    <button class="btn-pop btn-go" onclick="closePopup(true)">CONFIRMER</button>
 </div>
 
 <div class="dashboard-grid">
-    <div class="card"><div id="map"></div></div>
+    <div class="card">
+        <div id="map"></div>
+        <div class="map-selector">
+            <button id="btn-dark" class="active" onclick="setMapStyle('dark')">DARK</button>
+            <button id="btn-sat" onclick="setMapStyle('sat')">SATELLITE</button>
+        </div>
+    </div>
     
     <div id="cam-card" class="card">
         <img id="video-feed" src="/video_feed" style="width:100%; height:100%; object-fit:cover;">
@@ -75,90 +98,113 @@
     </div>
 
     <div class="card controls">
-        <div style="text-align:center;"><div class="track"><div id="fillL2" class="fill"></div></div></div>
+        <div class="track"><div id="fillL2" class="fill" style="background:var(--red)"></div></div>
         <div style="text-align: center;">
-            <div style="display:flex; justify-content:center; gap:60px;">
+            <div style="display:flex; justify-content:center; gap:60px; margin-bottom:10px;">
                 <div id="dotL" class="dot">◀</div>
                 <div id="dotR" class="dot">▶</div>
             </div>
-            <h2 id="conn-text" style="color:var(--accent); margin:10px 0;">NAV-X READY</h2>
+            <h1 style="margin:0; color:var(--accent);">NAV-X</h1>
         </div>
-        <div style="text-align:center;"><div class="track"><div id="fillR2" class="fill"></div></div></div>
+        <div class="track"><div id="fillR2" class="fill" style="background:var(--green)"></div></div>
     </div>
 </div>
 
 <script>
     const socket = io();
-    let lastSend = 0;
-    let currentBlinker = 'OFF';
-    let robotPos = [43.2951, -0.3708];
+    const tickSon = new Audio('https://lasonotheque.org/UPLOAD/mp3/3110.mp3');
+    const gongSon = new Audio('/static/gong.mp3');
+    
+    let robotPos = [43.2951, -0.3708], tempDest = null, currentBlinker = 'OFF', lastSend = 0;
 
-    // --- INITIALISATION MAP ---
+    // --- CARTES ---
     const map = L.map('map', {zoomControl: false}).setView(robotPos, 17);
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png').addTo(map);
+    const miniMap = L.map('mini-map', {zoomControl: false, attributionControl: false});
+
+    const darkLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png').addTo(map);
+    const satLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}');
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png').addTo(miniMap);
+
+    // HALO BLEU 10%
+    const haloIcon = L.divIcon({ className: 'robot-halo', iconSize: [60, 60], iconAnchor: [30, 30] });
     const robotIcon = L.icon({ iconUrl: '/static/ico.png', iconSize: [50, 50], iconAnchor: [25, 38] });
-    const marker = L.marker(robotPos, {icon: robotIcon}).addTo(map);
 
-    // --- SOCKET EVENTS ---
-    socket.on('connect', () => {
-        document.getElementById('loader').style.display = 'none';
-        document.getElementById('status-badge').style.color = 'var(--green)';
-        document.getElementById('status-badge').innerText = '● CONNECTÉ';
-    });
+    const haloMarker = L.marker(robotPos, {icon: haloIcon}).addTo(map);
+    const robotMarker = L.marker(robotPos, {icon: robotIcon}).addTo(map);
 
-    socket.on('map_update', (data) => {
-        const newPos = [data.lat, data.lng];
-        marker.setLatLng(newPos);
-        map.panTo(newPos);
-        document.getElementById('speed-display').innerText = Math.round(data.speed || 0);
-    });
+    function setMapStyle(s) {
+        if(s === 'sat') { map.addLayer(satLayer); map.removeLayer(darkLayer); }
+        else { map.addLayer(darkLayer); map.removeLayer(satLayer); }
+        document.querySelectorAll('.map-selector button').forEach(b => b.classList.toggle('active'));
+    }
 
-    // --- GAMEPAD & CONTROL LOOP ---
-    let lastB1 = false, lastB2 = false, lastB3 = false;
+    // GEOCODER (RECHERCHE)
+    const geocoder = L.Control.geocoder({ defaultMarkGeocode: false, placeholder: "🔍 Destination..." })
+    .on('markgeocode', function(e) {
+        tempDest = e.geocode.center;
+        document.getElementById('pop-addr').innerText = e.geocode.name.split(',')[0].toUpperCase();
+        document.getElementById('dest-popup').style.display = 'block';
+        setTimeout(() => { 
+            miniMap.invalidateSize(); 
+            miniMap.setView(tempDest, 16);
+            L.marker(tempDest).addTo(miniMap);
+        }, 200);
+    }).addTo(map);
+
+    function closePopup(confirm) {
+        document.getElementById('dest-popup').style.display = 'none';
+        if(confirm && tempDest) map.panTo(tempDest);
+    }
+
+    // --- GAMEPAD & SOUND ---
+    let lastB1 = false, lastB2 = false, lastB3 = false, lastH = false, bInterval = null;
 
     function update() {
-        const gamepads = navigator.getGamepads();
-        const gp = gamepads[0];
-        if (!gp) return requestAnimationFrame(update);
+        const gp = navigator.getGamepads()[0];
+        if(!gp) return requestAnimationFrame(update);
 
-        // Détection changements clignotants (Boutons L1, R1, Triangle)
-        if (gp.buttons[4].pressed && !lastB1) toggleBlinker('L');
-        if (gp.buttons[5].pressed && !lastB2) toggleBlinker('R');
-        if (gp.buttons[3].pressed && !lastB3) toggleBlinker('W');
-        
-        lastB1 = gp.buttons[4].pressed;
-        lastB2 = gp.buttons[5].pressed;
-        lastB3 = gp.buttons[3].pressed;
+        if(gp.buttons[4].pressed && !lastB1) toggleB('L');
+        if(gp.buttons[5].pressed && !lastB2) toggleB('R');
+        if(gp.buttons[3].pressed && !lastB3) toggleB('W');
+        if(gp.buttons[14].pressed && !lastH) { gongSon.currentTime=0; gongSon.play(); }
 
-        // Visualisation Jauges Gaz/Frein
+        lastB1=gp.buttons[4].pressed; lastB2=gp.buttons[5].pressed; lastB3=gp.buttons[3].pressed; lastH=gp.buttons[14].pressed;
+
         document.getElementById('fillL2').style.height = (gp.buttons[6].value * 100) + "%";
         document.getElementById('fillR2').style.height = (gp.buttons[7].value * 100) + "%";
 
-        // LIMITATEUR D'ENVOI (50ms)
         const now = Date.now();
-        if (now - lastSend > 50) {
-            const v = Math.round((gp.buttons[7].value - gp.buttons[6].value) * 255);
-            const d = Math.round(gp.axes[0] * 255);
-            const h = gp.buttons[14].pressed; // Klaxon sur bouton tactile ou bas
-            
-            socket.emit('drive_cmd', { v: v, d: d, blinker: currentBlinker, horn: h });
+        if(now - lastSend > 50) {
+            socket.emit('drive_cmd', {
+                v: Math.round((gp.buttons[7].value - gp.buttons[6].value) * 255),
+                d: Math.round(gp.axes[0] * 255),
+                blinker: currentBlinker,
+                horn: lastH
+            });
             lastSend = now;
         }
-
         requestAnimationFrame(update);
     }
 
-    function toggleBlinker(mode) {
-        currentBlinker = (currentBlinker === mode) ? 'OFF' : mode;
-        document.getElementById('dotL').classList.toggle('active-dot', currentBlinker === 'L' || currentBlinker === 'W');
-        document.getElementById('dotR').classList.toggle('active-dot', currentBlinker === 'R' || currentBlinker === 'W');
+    function toggleB(m) {
+        currentBlinker = (currentBlinker === m) ? 'OFF' : m;
+        document.getElementById('dotL').classList.toggle('active-dot', currentBlinker==='L'||currentBlinker==='W');
+        document.getElementById('dotR').classList.toggle('active-dot', currentBlinker==='R'||currentBlinker==='W');
+        if(bInterval) clearInterval(bInterval);
+        if(currentBlinker !== 'OFF') {
+            tickSon.play();
+            bInterval = setInterval(() => { tickSon.currentTime=0; tickSon.play(); }, 800);
+        }
     }
 
-    window.addEventListener("gamepadconnected", () => {
-        console.log("Gamepad OK");
-        requestAnimationFrame(update);
+    socket.on('connect', () => document.getElementById('loader').style.display='none');
+    socket.on('map_update', (d) => {
+        const p = [d.lat, d.lng];
+        robotMarker.setLatLng(p); haloMarker.setLatLng(p);
+        document.getElementById('speed-display').innerText = Math.round(d.speed || 0);
     });
 
+    window.addEventListener("gamepadconnected", () => requestAnimationFrame(update));
 </script>
 </body>
 </html>
