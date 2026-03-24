@@ -10,11 +10,14 @@ socketio = SocketIO(app, cors_allowed_origins="*")
 esp_connected = False
 last_esp_time = 0
 
-pygame.mixer.init()
+pygame.mixer.init()# Initialisation Audio sécurisée
 try:
+    pygame.mixer.init()
     gong_sound = pygame.mixer.Sound("gong.mp3")
-except:
-    gong_sound = None
+    print("Audio OK")
+except Exception as e:
+    print(f"Erreur Audio : {e}")
+    gong_sound = None  # Le robot fonctionnera sans son au lieu de crash
 
 try:
     ser = serial.Serial('/dev/ttyUSB0', 115200, timeout=0.01, write_timeout=0)
