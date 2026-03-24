@@ -1,6 +1,7 @@
 import serial
 import time
 import pygame
+import os
 from flask import Flask, render_template
 from flask_socketio import SocketIO
 
@@ -12,30 +13,28 @@ esp_connected = False
 last_esp_time = 0
 
 # --- INITIALISATION AUDIO SÉCURISÉE ---
-# Le bloc try/except empêche le crash du robot si la carte son est occupée
 try:
     pygame.mixer.init()
-    gong_sound = pygame.mixer.Sound("gong.mp3")
+    # Utilisation du chemin complet pour éviter les erreurs de service
+    gong_sound = pygame.mixer.Sound("/home/fewday/navx/static/gong.mp3")
     print("Audio OK : Prêt pour le klaxon.")
 except Exception as e:
-    print(f"ALERTE AUDIO : Impossible d'ouvrir ALSA ({e}). Le robot fonctionnera sans son.")
+    print(f"ALERTE AUDIO : Impossible d'ouvrir ALSA ({e}).")
     gong_sound = None
 
 # --- CONNEXION SÉRIE (ESP32) ---
+ser = None
 try:
-    # On force timeout=0 et write_timeout=0 pour supprimer la latence USB
     ser = serial.Serial('/dev/ttyUSB0', 115200, timeout=0, write_timeout=0)
 except:
     try:
         ser = serial.Serial('/dev/ttyACM0', 115200, timeout=0, write_timeout=0)
     except:
         print("ESP32 non détecté sur USB. Vérifiez le câble.")
-        ser = None
 
 @app.route('/')
 def index():
     return render_template('index.html')
-
 
 @socketio.on('drive_cmd')
 def handle_drive(data):
@@ -43,28 +42,29 @@ def handle_drive(data):
     d = data.get('d', 0)
     b_str = data.get('blinker', 'OFF')
     
-    # Jouer le son si le bouton est pressé et que l'audio fonctionne
-    if data.get('horn') and gong_sound:
-        try:
-            gong_sound.play()
-        except:
-            pass
+    # 1. GESTION DU KLAKSON (HORN)
+    if data.get('horn'):
+        # On tente de jouer via Pygame ET via le système pour être sûr
+        if gong_sound:
+            try:
+                gong_sound.play()
+            except:
+                pass
+        # Backup via commande système Linux (paplay est très stable sur RPi)
+        os.system("paplay /home/fewday/navx/static/gong.mp3 &")
 
-    # Conversion du mode clignotant pour l'ESP32
+    # 2. CONVERSION CLIGNOTANTS
     b = 0
     if b_str == 'L': b = 1
     elif b_str == 'R': b = 2
     elif b_str == 'W': b = 3
 
-   if data.get('horn'):
-        # Commande système pour jouer un son sur Linux/Raspberry
-        # Assure-toi d'avoir installé 'mpg123' ou 'paplay'
-        os.system("paplay static/gong.mp3 &")
+    # 3. ENVOI À L'ESP32
     if ser:
         try:
             message = f"{v},{b},{d}\n"
             ser.write(message.encode())
-            ser.flush()  # Force l'envoi immédiat sans bufferiser
+            ser.flush()
         except Exception as e:
             print(f"Erreur envoi série : {e}")
 
@@ -91,14 +91,14 @@ def background_tasks():
             except:
                 pass
         
-        # Si plus de signal de l'ESP32 pendant 2 secondes
+        # Timeout connexion ESP32
         if time.time() - last_esp_time > 2.0 and esp_connected:
             esp_connected = False
             socketio.emit('esp_status', {'connected': False})
             
-        socketio.sleep(0.01) # Laisse respirer le processeur du Pi
+        socketio.sleep(0.01)
 
 if __name__ == '__main__':
     socketio.start_background_task(background_tasks)
-    # Lancement du serveur sur le port 5000
+    # allow_unsafe_werkzeug=True est nécessaire pour Flask-SocketIO sur les versions récentes
     socketio.run(app, host='0.0.0.0', port=5000, allow_unsafe_werkzeug=True)
