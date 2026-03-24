@@ -2,41 +2,45 @@ import serial
 import time
 import pygame
 import os
+import eventlet
 from flask import Flask, render_template
 from flask_socketio import SocketIO
 
+# Forcer Eventlet pour la basse latence
+eventlet.monkey_patch()
+
 app = Flask(__name__)
-socketio = SocketIO(app, cors_allowed_origins="*")
+# Suppression du buffering SocketIO
+socketio = SocketIO(app, cors_allowed_origins="*", async_mode='eventlet', buffered=False)
 
 # Variables d'état
 ser = None
 esp_connected = False
 last_esp_time = 0
 
-# --- INITIALISATION AUDIO SÉCURISÉE ---
+# --- INITIALISATION AUDIO ---
 gong_sound = None
 try:
     pygame.mixer.init()
     if os.path.exists("gong.mp3"):
         gong_sound = pygame.mixer.Sound("gong.mp3")
-        print("✅ Système Audio : OK")
+        print("✅ Audio Ready")
 except Exception as e:
-    print(f"⚠️ Audio non disponible (ALSA Error): {e}")
+    print(f"⚠️ Audio Bypass: {e}")
 
 def connect_esp32():
-    """ Tente de se connecter à l'ESP32 en boucle toutes les 2 secondes """
     global ser
     while ser is None:
         for port in ['/dev/ttyUSB0', '/dev/ttyACM0']:
             try:
-                temp_ser = serial.Serial(port, 115200, timeout=0.1)
+                # Timeout réglé au minimum (1ms) pour éviter les lags
+                temp_ser = serial.Serial(port, 115200, timeout=0.001)
                 ser = temp_ser
-                print(f"✅ ESP32 détecté sur {port}")
+                ser.flushInput() # On vide les vieilles données
+                print(f"✅ ESP32 Connected on {port}")
                 return
             except:
                 continue
-        
-        print("⏳ ESP32 introuvable... Re-tentative dans 2s")
         time.sleep(2)
 
 @app.route('/')
@@ -59,10 +63,10 @@ def handle_drive(data):
 
     if ser:
         try:
+            # Envoi direct sans délai
             ser.write(f"{v},{b},{d}\n".encode())
         except:
-            print("❌ Erreur d'envoi : ESP32 déconnecté !")
-            ser = None # Force la reconnexion dans la tâche de fond
+            ser = None
 
 def background_tasks():
     global esp_connected, last_esp_time, ser
@@ -73,7 +77,8 @@ def background_tasks():
             connect_esp32()
         
         try:
-            if ser and ser.in_waiting > 0:
+            # On lit tout ce qui arrive d'un coup pour ne pas accumuler de retard
+            while ser and ser.in_waiting > 0:
                 line = ser.readline().decode('utf-8', errors='ignore').strip()
                 last_esp_time = time.time()
                 
@@ -84,19 +89,22 @@ def background_tasks():
                 if line.startswith("GPS:"):
                     coords = line.replace("GPS:", "").split(",")
                     if len(coords) >= 2:
-                        socketio.emit('map_update', {'lat': float(coords[0]), 'lng': float(coords[1])})
-        except Exception as e:
-            print(f"⚠️ Erreur lecture Serial : {e}")
-            ser = None # On perd la main, on redemande une connexion
+                        socketio.emit('map_update', {
+                            'lat': float(coords[0]), 
+                            'lng': float(coords[1])
+                        })
+        except:
+            ser = None
         
-        # Timeout de sécurité
-        if time.time() - last_esp_time > 3.0 and esp_connected:
+        # Monitoring connexion
+        if time.time() - last_esp_time > 2.0 and esp_connected:
             esp_connected = False
             socketio.emit('esp_status', {'connected': False})
             
-        socketio.sleep(0.1)
+        # Fréquence de rafraîchissement rapide (10ms)
+        socketio.sleep(0.01)
 
 if __name__ == '__main__':
     socketio.start_background_task(background_tasks)
-    print("🚀 Serveur NAV-X lancé sur http://0.0.0.0:5000")
+    print("🚀 NAV-X Live - Low Latency Mode Active")
     socketio.run(app, host='0.0.0.0', port=5000)
