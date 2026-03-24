@@ -29,7 +29,7 @@
             color: white; font-family: 'Segoe UI', sans-serif; margin: 0; padding: 0; overflow: hidden; 
         }
 
-        /* --- BARRE DE NAVIGATION --- */
+        /* --- BARRE DE NAVIGATION (TAB BAR) --- */
         .tab-bar {
             height: 60px; background: #0d1117; display: flex; align-items: center; 
             justify-content: space-between; padding: 0 25px; border-bottom: 1px solid var(--border);
@@ -60,7 +60,7 @@
         }
         .map-selector button.active { border-color: var(--accent); color: var(--accent); }
 
-        /* --- CAMERA & EFFECTS --- */
+        /* --- CAMERA & EFFECTS (CLIGNOTANTS) --- */
         .camera-container { position: relative; background: #000; }
         .reflet { position: absolute; inset: 0; pointer-events: none; opacity: 0; z-index: 5; transition: opacity 0.1s; }
         @keyframes blink-anim { 0%, 100% { opacity: 0; } 50% { opacity: 1; } }
@@ -81,6 +81,7 @@
         .dot { width: 45px; height: 45px; border: 2px solid #333; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 20px; color: #333; }
         .active-dot { border-color: var(--orange); color: var(--orange); box-shadow: 0 0 15px var(--orange); animation: blink-anim 0.8s infinite; }
 
+        /* --- UI ELEMENTS --- */
         .leaflet-routing-container { display: none !important; }
         .robot-halo { background: rgba(0, 212, 255, 0.1); border-radius: 50%; pointer-events: none; }
     </style>
@@ -93,7 +94,7 @@
             <img src="/static/logo.png" class="navx-logo-img">
         </div>
         <div style="color: var(--accent); font-weight: bold; letter-spacing: 3px;">NAV-X SYSTEM</div>
-        <div id="gp-status" style="color: #444; font-size: 10px;">MANETTE DÉCONNECTÉE</div>
+        <div id="gp-status" style="color: #444; font-size: 10px;">SCANNING GAMEPAD...</div>
     </nav>
 
     <div class="dashboard-grid">
@@ -133,7 +134,7 @@
     const gongSon = new Audio('/static/gong.mp3');
     let robotPos = [43.2951, -0.3708], currentBlinker = 'OFF', lastSend = 0;
 
-    // --- CARTES ---
+    // --- INITIALISATION MAP ---
     const map = L.map('map', {zoomControl: false}).setView(robotPos, 18);
     const darkLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png').addTo(map);
     const satLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}');
@@ -148,20 +149,21 @@
         document.getElementById('btn-sat').classList.toggle('active', s==='sat');
     }
 
-    // --- ROUTAGE ---
+    // --- ROUTAGE & RECHERCHE ---
     const routing = L.Routing.control({
         waypoints: [],
         router: L.Routing.osrmv1({ serviceUrl: 'https://router.project-osrm.org/route/v1', profile: 'foot' }),
-        lineOptions: { styles: [{ color: '#00d4ff', weight: 5, opacity: 0.8 }] },
+        lineOptions: { styles: [{ color: '#00d4ff', weight: 5, opacity: 0.8 }], addWaypoints: false },
         createMarker: () => null, show: false
     }).addTo(map);
 
-    L.Control.geocoder({defaultMarkGeocode:false}).on('markgeocode', e => {
+    L.Control.geocoder({defaultMarkGeocode:false, placeholder: "Rechercher..."})
+    .on('markgeocode', e => {
         routing.setWaypoints([L.latLng(robotM.getLatLng()), L.latLng(e.geocode.center)]);
         map.panTo(e.geocode.center, {animate: true});
     }).addTo(map);
 
-    // --- MANETTE (LOGIQUE SÉCURISÉE) ---
+    // --- LOGIQUE GAMEPAD ---
     let lastB1=false, lastB2=false, lastB3=false, lastH=false, bInterval=null;
 
     function update() {
@@ -170,19 +172,20 @@
         for(let i=0; i<gamepads.length; i++) { if(gamepads[i]) { gp = gamepads[i]; break; } }
 
         if(!gp) {
-            document.getElementById('gp-status').innerText = "RECHERCHE MANETTE...";
+            document.getElementById('gp-status').innerText = "WAITING FOR INPUT...";
             return requestAnimationFrame(update);
         }
-        document.getElementById('gp-status').innerText = "MANETTE ACTIVE: " + gp.id.substring(0,15);
+        document.getElementById('gp-status').innerText = "ACTIVE: " + gp.id.substring(0,10);
 
-        // Clignotants (Toggle avec annulation)
-        if(gp.buttons[4].pressed && !lastB1) toggleB('L');
-        if(gp.buttons[5].pressed && !lastB2) toggleB('R');
-        if(gp.buttons[3].pressed && !lastB3) toggleB('W');
+        // Clignotants (Système : Un appui sur n'importe quel bouton clignotant éteint l'actuel)
+        if(gp.buttons[4].pressed && !lastB1) toggleB('L'); // L1
+        if(gp.buttons[5].pressed && !lastB2) toggleB('R'); // R1
+        if(gp.buttons[3].pressed && !lastB3) toggleB('W'); // Triangle (Warning)
         if(gp.buttons[14].pressed && !lastH) { gongSon.currentTime=0; gongSon.play().catch(()=>{}); }
 
         lastB1=gp.buttons[4].pressed; lastB2=gp.buttons[5].pressed; lastB3=gp.buttons[3].pressed; lastH=gp.buttons[14].pressed;
 
+        // Triggers visuels
         document.getElementById('fillL2').style.height = (gp.buttons[6].value * 100) + "%";
         document.getElementById('fillR2').style.height = (gp.buttons[7].value * 100) + "%";
 
@@ -201,30 +204,49 @@
 
     function toggleB(m) {
         const cam = document.getElementById('cam-card'), dL = document.getElementById('dotL'), dR = document.getElementById('dotR');
-        currentBlinker = (currentBlinker !== 'OFF') ? 'OFF' : m;
+        
+        // Logique demandée : si un clignotant tourne, l'appui sur un bouton l'arrête.
+        if (currentBlinker !== 'OFF') {
+            currentBlinker = 'OFF';
+        } else {
+            currentBlinker = m;
+        }
+
+        // Reset Visuel/Sonore
         cam.className = 'card camera-container';
         dL.classList.remove('active-dot'); dR.classList.remove('active-dot');
         if(bInterval) { clearInterval(bInterval); bInterval = null; tickSon.pause(); }
+
+        // Activation
         if(currentBlinker !== 'OFF') {
             if(currentBlinker==='L') { cam.classList.add('flash-L'); dL.classList.add('active-dot'); }
             if(currentBlinker==='R') { cam.classList.add('flash-R'); dR.classList.add('active-dot'); }
             if(currentBlinker==='W') { cam.classList.add('flash-W'); dL.classList.add('active-dot'); dR.classList.add('active-dot'); }
+            
             tickSon.play().catch(()=>{});
             bInterval = setInterval(() => { tickSon.currentTime=0; tickSon.play().catch(()=>{}); }, 800);
         }
     }
 
+    // --- UPDATES GPS ---
     socket.on('map_update', d => {
         const p = [d.lat, d.lng];
-        robotM.setLatLng(p); haloM.setLatLng(p);
+        robotM.setLatLng(p);
+        haloM.setLatLng(p);
+        
+        // Auto-centrage fluide
         map.panTo(p, { animate: true, duration: 1.0 });
+
+        // Mise à jour de la route si active
         const wps = routing.getWaypoints();
-        if (wps[1] && wps[1].latLng) routing.spliceWaypoints(0, 1, L.latLng(p));
+        if (wps[1] && wps[1].latLng) {
+            routing.spliceWaypoints(0, 1, L.latLng(p));
+        }
+
         document.getElementById('speed-display').innerText = Math.round(d.speed || 0);
     });
 
-    // Lancement automatique
-    window.addEventListener("gamepadconnected", () => { console.log("Gamepad Connected"); });
+    // Lancement
     requestAnimationFrame(update);
 </script>
 </body>
