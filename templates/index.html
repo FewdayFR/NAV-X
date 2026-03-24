@@ -3,7 +3,6 @@
 <head>
     <meta charset="UTF-8">
     <title>NAV-X Dashboard - TRANSNODE</title>
-    
     <link rel="icon" type="image/x-icon" href="/static/ico.ico">
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
@@ -17,106 +16,54 @@
     
     <style>
         :root { 
-            --bg: #02040a; /* Bleu nuit très profond */
-            --card: rgba(13, 17, 23, 0.9); 
+            --bg: #02040a; 
+            --card: rgba(13, 17, 23, 0.95); 
             --accent: #00d4ff; 
             --orange: #ff9800; 
+            --border: #30363d;
         }
 
         body { 
             background: var(--bg); 
-            background-image: radial-gradient(circle at center, #050a1f 0%, #02040a 100%);
-            color: white; 
-            font-family: 'Segoe UI', sans-serif; 
-            margin: 0; 
-            padding: 0; 
-            overflow: hidden; 
+            background-image: radial-gradient(circle at center, #0a1025 0%, #02040a 100%);
+            color: white; font-family: 'Segoe UI', sans-serif; margin: 0; padding: 0; overflow: hidden; 
         }
 
-        /* --- BARRE DE NAVIGATION (TAB BAR) --- */
+        /* --- BARRE DE NAVIGATION --- */
         .tab-bar {
-            height: 60px;
-            background: #0d1117;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 0 25px;
-            border-bottom: 1px solid #30363d;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
-            position: relative;
-            z-index: 1000;
+            height: 60px; background: #0d1117; display: flex; align-items: center; 
+            justify-content: space-between; padding: 0 25px; border-bottom: 1px solid var(--border);
+            position: relative; z-index: 1000;
         }
+        .menu-left { display: flex; align-items: center; gap: 20px; }
+        .menu-icon { cursor: pointer; display: flex; flex-direction: column; gap: 5px; }
+        .menu-icon span { display: block; width: 22px; height: 2px; background: var(--accent); border-radius: 2px; }
+        .navx-logo-img { height: 32px; filter: drop-shadow(0 0 5px var(--accent)); }
 
-        .menu-left {
-            display: flex;
-            align-items: center;
-            gap: 20px;
-        }
-
-        /* Les trois tirets (Hamburger) */
-        .menu-icon {
-            cursor: pointer;
-            display: flex;
-            flex-direction: column;
-            gap: 5px;
-            padding: 10px;
-        }
-        .menu-icon span {
-            display: block;
-            width: 25px;
-            height: 2px;
-            background: var(--accent);
-            border-radius: 2px;
-            transition: 0.3s;
-        }
-
-        .navx-logo-img {
-            height: 35px;
-            filter: drop-shadow(0 0 5px var(--accent));
-        }
-
-        .tab-items {
-            display: flex;
-            gap: 30px;
-            color: #8b949e;
-            font-size: 13px;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-        }
-
-        .tab-item.active {
-            color: var(--accent);
-            border-bottom: 2px solid var(--accent);
-            padding: 20px 0;
-        }
-
-        /* --- REGLAGE DE LA GRILLE --- */
+        /* --- DASHBOARD GRID --- */
         .dashboard-grid { 
-            display: grid; 
-            grid-template-columns: 1fr 2fr; 
-            /* On calcule la hauteur moins la barre du haut */
-            grid-template-rows: calc(100vh - 270px) 180px; 
-            gap: 15px; 
-            max-width: 1800px; 
-            margin: 15px auto; 
-            padding: 0 15px;
+            display: grid; grid-template-columns: 1fr 2fr; 
+            grid-template-rows: calc(100vh - 275px) 180px; 
+            gap: 15px; max-width: 1800px; margin: 15px auto; padding: 0 15px;
         }
+        .card { background: var(--card); border-radius: 20px; border: 1px solid var(--border); position: relative; overflow: hidden; }
 
-        .card { 
-            background: var(--card); 
-            border-radius: 20px; 
-            border: 1px solid #30363d; 
-            position: relative; 
-            overflow: hidden; 
+        /* --- MAP & SAT BUTTON --- */
+        #map { width: 100%; height: 100%; background: #000; }
+        .map-selector { 
+            position: absolute; bottom: 15px; left: 15px; z-index: 1000; 
+            display: flex; gap: 5px; background: rgba(0,0,0,0.8); padding: 5px; border-radius: 8px;
         }
+        .map-selector button { 
+            background: none; border: 1px solid #444; color: white; padding: 5px 12px; 
+            cursor: pointer; font-size: 10px; border-radius: 4px; font-weight: bold;
+        }
+        .map-selector button.active { border-color: var(--accent); color: var(--accent); }
 
-        /* Elements internes (inchangés pour ne rien casser) */
-        #map { width: 100%; height: 100%; background: #111; }
+        /* --- CAMERA & EFFECTS --- */
         .camera-container { position: relative; background: #000; }
-        .reflet { position: absolute; inset: 0; pointer-events: none; opacity: 0; z-index: 5; }
-        
-        @keyframes blink-anim { 0% { opacity: 0; } 50% { opacity: 1; } 100% { opacity: 0; } }
+        .reflet { position: absolute; inset: 0; pointer-events: none; opacity: 0; z-index: 5; transition: opacity 0.1s; }
+        @keyframes blink-anim { 0%, 100% { opacity: 0; } 50% { opacity: 1; } }
         .flash-L .reflet { opacity: 1; background: radial-gradient(circle at 0% 50%, var(--orange) 0%, transparent 70%); animation: blink-anim 0.8s infinite; }
         .flash-R .reflet { opacity: 1; background: radial-gradient(circle at 100% 50%, var(--orange) 0%, transparent 70%); animation: blink-anim 0.8s infinite; }
         .flash-W .reflet { opacity: 1; background: linear-gradient(90deg, var(--orange) 0%, transparent 50%, var(--orange) 100%); animation: blink-anim 0.8s infinite; }
@@ -127,12 +74,13 @@
         }
         .speed-val { font-size: 38px; font-weight: 900; color: var(--accent); }
 
+        /* --- CONTROLS --- */
         .controls { grid-column: 1 / span 2; display: grid; grid-template-columns: 150px 1fr 150px; align-items: center; padding: 0 40px; }
-        .track { width: 12px; height: 100px; background: #222; border-radius: 6px; position: relative; overflow: hidden; }
+        .track { width: 12px; height: 100px; background: #1a1d23; border-radius: 6px; position: relative; overflow: hidden; border: 1px solid #333; }
         .fill { width: 100%; position: absolute; bottom: 0; transition: height 0.1s; }
         .dot { width: 45px; height: 45px; border: 2px solid #333; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 20px; color: #333; }
         .active-dot { border-color: var(--orange); color: var(--orange); box-shadow: 0 0 15px var(--orange); animation: blink-anim 0.8s infinite; }
-        
+
         .leaflet-routing-container { display: none !important; }
         .robot-halo { background: rgba(0, 212, 255, 0.1); border-radius: 50%; pointer-events: none; }
     </style>
@@ -141,50 +89,43 @@
 
     <nav class="tab-bar">
         <div class="menu-left">
-            <div class="menu-icon">
-                <span></span>
-                <span></span>
-                <span></span>
-            </div>
-            <img src="/static/logo.png" class="navx-logo-img" alt="NAV-X">
+            <div class="menu-icon"><span></span><span></span><span></span></div>
+            <img src="/static/logo.png" class="navx-logo-img">
         </div>
-
-        <div class="tab-items">
-            <div class="tab-item active">Dashboard</div>
-            <div class="tab-item">Missions</div>
-            <div class="tab-item">System</div>
-        </div>
-
-        <div style="color: var(--accent); font-size: 12px; font-weight: bold;">
-            LIVE FEED
-        </div>
+        <div style="color: var(--accent); font-weight: bold; letter-spacing: 3px;">NAV-X SYSTEM</div>
+        <div id="gp-status" style="color: #444; font-size: 10px;">MANETTE DÉCONNECTÉE</div>
     </nav>
 
     <div class="dashboard-grid">
-    <div class="card">
-        <div id="map"></div>
-        <div class="map-selector">
-            <button id="btn-dark" class="active" onclick="setMapStyle('dark')">DARK</button>
-            <button id="btn-sat" onclick="setMapStyle('sat')">SATELLITE</button>
-        </div>
-    </div>
-    <div id="cam-card" class="card camera-container">
-        <img id="video-feed" src="/video_feed" style="width:100%; height:100%; object-fit:cover;">
-        <div class="reflet"></div>
-        <div class="speed-overlay"><span id="speed-display" class="speed-val">0</span><span style="font-size:10px; color:#aaa"> KM/H</span></div>
-    </div>
-    <div class="card controls">
-        <div class="track"><div id="fillL2" class="fill" style="background:var(--orange)"></div></div>
-        <div style="text-align: center;">
-            <div style="display:flex; justify-content:center; gap:60px; margin-bottom:10px;">
-                <div id="dotL" class="dot">◀</div>
-                <div id="dotR" class="dot">▶</div>
+        <div class="card">
+            <div id="map"></div>
+            <div class="map-selector">
+                <button id="btn-dark" class="active" onclick="setMapStyle('dark')">DARK</button>
+                <button id="btn-sat" onclick="setMapStyle('sat')">SATELLITE</button>
             </div>
-            <h1 style="margin:0; color:var(--accent); letter-spacing: 5px;">NAV-X</h1>
         </div>
-        <div class="track"><div id="fillR2" class="fill" style="background:var(--accent)"></div></div>
+        
+        <div id="cam-card" class="card camera-container">
+            <img id="video-feed" src="/video_feed" style="width:100%; height:100%; object-fit:cover;">
+            <div class="reflet"></div>
+            <div class="speed-overlay">
+                <span id="speed-display" class="speed-val">0</span>
+                <span style="font-size:12px; color:#888"> KM/H</span>
+            </div>
+        </div>
+
+        <div class="card controls">
+            <div class="track"><div id="fillL2" class="fill" style="background:var(--accent)"></div></div>
+            <div style="text-align: center;">
+                <div style="display:flex; justify-content:center; gap:60px; margin-bottom:10px;">
+                    <div id="dotL" class="dot">◀</div>
+                    <div id="dotR" class="dot">▶</div>
+                </div>
+                <h2 style="margin:0; color:var(--accent); letter-spacing: 5px;">DASHBOARD</h2>
+            </div>
+            <div class="track"><div id="fillR2" class="fill" style="background:var(--accent)"></div></div>
+        </div>
     </div>
-</div>
 
 <script>
     const socket = io();
@@ -207,79 +148,84 @@
         document.getElementById('btn-sat').classList.toggle('active', s==='sat');
     }
 
-    // --- ROUTAGE PIETON ---
-   const routing = L.Routing.control({
+    // --- ROUTAGE ---
+    const routing = L.Routing.control({
         waypoints: [],
-        router: L.Routing.osrmv1({ 
-            serviceUrl: 'https://router.project-osrm.org/route/v1', 
-            profile: 'foot' // Mode PIÉTON
-        }),
-        lineOptions: { 
-            styles: [{ color: '#00d4ff', weight: 6, opacity: 0.9 }],
-            addWaypoints: false, // EMPECHE d'ajouter des points en cliquant sur la ligne
-            extendWaypoints: false
-        },
-        createMarker: function(i, wp) {
-            // On ne crée un marqueur que pour la destination (index 1)
-            if (i === 1) {
-                return L.marker(wp.latLng, {
-                    draggable: true,
-                    icon: L.icon({
-                        iconUrl: 'https://cdn-icons-png.flaticon.com/512/684/684908.png',
-                        iconSize: [30, 30],
-                        iconAnchor: [15, 30]
-                    })
-                }).bindPopup("Destination");
-            }
-            return null; // Pas de marqueur sur le robot (déjà existant)
-        },
-        show: false,
-        addWaypoints: false // Désactive l'ajout de points par clic sur la carte via le controler
+        router: L.Routing.osrmv1({ serviceUrl: 'https://router.project-osrm.org/route/v1', profile: 'foot' }),
+        lineOptions: { styles: [{ color: '#00d4ff', weight: 5, opacity: 0.8 }] },
+        createMarker: () => null, show: false
     }).addTo(map);
 
-    // --- INTERCEPTION DU CLIC SUR LA CARTE ---
-    // On empêche Leaflet de vider les waypoints au clic
-    map.on('click', function(e) {
-        // Si tu veux que le clic définisse une NOUVELLE destination au lieu de la recherche :
-        // setDestination(e.latlng); 
-    });
+    L.Control.geocoder({defaultMarkGeocode:false}).on('markgeocode', e => {
+        routing.setWaypoints([L.latLng(robotM.getLatLng()), L.latLng(e.geocode.center)]);
+        map.panTo(e.geocode.center, {animate: true});
+    }).addTo(map);
 
-    // Fonction pour définir la destination proprement
-    function setDestination(latlng) {
-        const start = robotM.getLatLng();
-        routing.setWaypoints([
-            L.latLng(start.lat, start.lng),
-            L.latLng(latlng.lat, latlng.lng)
-        ]);
+    // --- MANETTE (LOGIQUE SÉCURISÉE) ---
+    let lastB1=false, lastB2=false, lastB3=false, lastH=false, bInterval=null;
+
+    function update() {
+        const gamepads = navigator.getGamepads();
+        let gp = null;
+        for(let i=0; i<gamepads.length; i++) { if(gamepads[i]) { gp = gamepads[i]; break; } }
+
+        if(!gp) {
+            document.getElementById('gp-status').innerText = "RECHERCHE MANETTE...";
+            return requestAnimationFrame(update);
+        }
+        document.getElementById('gp-status').innerText = "MANETTE ACTIVE: " + gp.id.substring(0,15);
+
+        // Clignotants (Toggle avec annulation)
+        if(gp.buttons[4].pressed && !lastB1) toggleB('L');
+        if(gp.buttons[5].pressed && !lastB2) toggleB('R');
+        if(gp.buttons[3].pressed && !lastB3) toggleB('W');
+        if(gp.buttons[14].pressed && !lastH) { gongSon.currentTime=0; gongSon.play().catch(()=>{}); }
+
+        lastB1=gp.buttons[4].pressed; lastB2=gp.buttons[5].pressed; lastB3=gp.buttons[3].pressed; lastH=gp.buttons[14].pressed;
+
+        document.getElementById('fillL2').style.height = (gp.buttons[6].value * 100) + "%";
+        document.getElementById('fillR2').style.height = (gp.buttons[7].value * 100) + "%";
+
+        const now = Date.now();
+        if(now - lastSend > 50) {
+            socket.emit('drive_cmd', { 
+                v: Math.round((gp.buttons[7].value - gp.buttons[6].value) * 255), 
+                d: Math.round(gp.axes[0] * 255), 
+                blinker: currentBlinker, 
+                horn: lastH 
+            });
+            lastSend = now;
+        }
+        requestAnimationFrame(update);
     }
 
-    // --- RECHERCHE GEOCODER ---
-    L.Control.geocoder({ defaultMarkGeocode: false, placeholder: "Où aller ?" })
-    .on('markgeocode', function(e) {
-        const dest = e.geocode.center;
-        setDestination(dest);
-        map.flyTo(dest, 18);
-    }).addTo(map);
+    function toggleB(m) {
+        const cam = document.getElementById('cam-card'), dL = document.getElementById('dotL'), dR = document.getElementById('dotR');
+        currentBlinker = (currentBlinker !== 'OFF') ? 'OFF' : m;
+        cam.className = 'card camera-container';
+        dL.classList.remove('active-dot'); dR.classList.remove('active-dot');
+        if(bInterval) { clearInterval(bInterval); bInterval = null; tickSon.pause(); }
+        if(currentBlinker !== 'OFF') {
+            if(currentBlinker==='L') { cam.classList.add('flash-L'); dL.classList.add('active-dot'); }
+            if(currentBlinker==='R') { cam.classList.add('flash-R'); dR.classList.add('active-dot'); }
+            if(currentBlinker==='W') { cam.classList.add('flash-W'); dL.classList.add('active-dot'); dR.classList.add('active-dot'); }
+            tickSon.play().catch(()=>{});
+            bInterval = setInterval(() => { tickSon.currentTime=0; tickSon.play().catch(()=>{}); }, 800);
+        }
+    }
 
-    // --- MISE À JOUR GPS (SOCKET) ---
     socket.on('map_update', d => {
         const p = [d.lat, d.lng];
-        robotM.setLatLng(p);
-        haloM.setLatLng(p);
-        
-        // AUTO-CENTRE
-        map.panTo(p, { animate: true, duration: 0.8 });
-
-        // MISE À JOUR DYNAMIQUE DE LA ROUTE
+        robotM.setLatLng(p); haloM.setLatLng(p);
+        map.panTo(p, { animate: true, duration: 1.0 });
         const wps = routing.getWaypoints();
-        if (wps[1] && wps[1].latLng) {
-            // On remplace uniquement le point de départ par la nouvelle position du robot
-            routing.spliceWaypoints(0, 1, L.latLng(p));
-        }
-
+        if (wps[1] && wps[1].latLng) routing.spliceWaypoints(0, 1, L.latLng(p));
         document.getElementById('speed-display').innerText = Math.round(d.speed || 0);
     });
-    window.addEventListener("gamepadconnected", () => requestAnimationFrame(update));
+
+    // Lancement automatique
+    window.addEventListener("gamepadconnected", () => { console.log("Gamepad Connected"); });
+    requestAnimationFrame(update);
 </script>
 </body>
 </html>
