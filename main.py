@@ -46,7 +46,7 @@ def handle_drive(data):
     if data.get('horn'):
         # On utilise 'aplay' ou 'paplay' avec le chemin complet
         # '&' permet de ne pas figer le robot pendant que le son joue
-        os.system("mpg123 /home/fewday/navx/static/gong.mp3 &")
+        os.system("mpg123 -o alsa:hw:1,0 /home/fewday/navx/static/gong.mp3 &")
 
     # 2. CONVERSION CLIGNOTANTS
     b = 0
