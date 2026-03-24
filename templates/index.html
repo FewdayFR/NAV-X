@@ -6,23 +6,26 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link rel="stylesheet" href="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.css" />
+    
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.js"></script>
+    <script src="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.js"></script>
     
     <style>
         :root { --bg: #080808; --card: #141414; --accent: #00d4ff; --orange: #ff9800; }
-        body { background: var(--bg); color: white; font-family: 'Segoe UI', sans-serif; margin: 0; padding: 15px; overflow: hidden; }
-        
-        /* GRID LAYOUT */
+        body { background: var(--bg); color: white; font-family: sans-serif; margin: 0; padding: 15px; overflow: hidden; }
         .dashboard-grid { display: grid; grid-template-columns: 1fr 2fr; grid-template-rows: 65vh 180px; gap: 15px; max-width: 1800px; margin: 0 auto; }
         .card { background: var(--card); border-radius: 20px; border: 1px solid #252525; position: relative; overflow: hidden; }
-
-        /* MAP & FLUID MOVEMENTS */
         #map { width: 100%; height: 100%; background: #111; }
-        .leaflet-fade-anim .leaflet-tile,.leaflet-zoom-anim .leaflet-zoom-animated { transition: opacity 0.5s linear; }
-        .robot-halo { background: rgba(0, 212, 255, 0.1); border-radius: 50%; pointer-events: none; transition: all 0.5s ease-out; }
         
-        /* CAMERA & BLINKERS */
+        /* MAP SELECTOR */
+        .map-selector { position: absolute; bottom: 15px; left: 15px; z-index: 1000; display: flex; gap: 5px; background: rgba(0,0,0,0.7); padding: 5px; border-radius: 8px; }
+        .map-selector button { background: none; border: 1px solid #444; color: white; padding: 5px 10px; cursor: pointer; font-size: 10px; border-radius: 4px; }
+        .map-selector button.active { border-color: var(--accent); color: var(--accent); }
+
+        /* ROBOT & EFFECTS */
+        .robot-halo { background: rgba(0, 212, 255, 0.1); border-radius: 50%; pointer-events: none; }
         .camera-container { position: relative; background: #000; }
         .reflet { position: absolute; inset: 0; pointer-events: none; opacity: 0; z-index: 5; }
         @keyframes blink-anim { 0% { opacity: 0; } 50% { opacity: 1; } 100% { opacity: 0; } }
@@ -38,12 +41,21 @@
         .fill { width: 100%; position: absolute; bottom: 0; transition: height 0.1s; }
         .dot { width: 45px; height: 45px; border: 2px solid #333; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 20px; color: #333; }
         .active-dot { border-color: var(--orange); color: var(--orange); box-shadow: 0 0 15px var(--orange); animation: blink-anim 0.8s infinite; }
+        
+        /* HIDE ROUTING PANEL */
+        .leaflet-routing-container { display: none !important; }
     </style>
 </head>
 <body>
 
 <div class="dashboard-grid">
-    <div class="card"><div id="map"></div></div>
+    <div class="card">
+        <div id="map"></div>
+        <div class="map-selector">
+            <button id="btn-dark" class="active" onclick="setMapStyle('dark')">DARK</button>
+            <button id="btn-sat" onclick="setMapStyle('sat')">SATELLITE</button>
+        </div>
+    </div>
     <div id="cam-card" class="card camera-container">
         <img id="video-feed" src="/video_feed" style="width:100%; height:100%; object-fit:cover;">
         <div class="reflet"></div>
@@ -66,40 +78,51 @@
     const socket = io();
     const tickSon = new Audio('https://lasonotheque.org/UPLOAD/mp3/3110.mp3');
     const gongSon = new Audio('/static/gong.mp3');
-    
     let robotPos = [43.2951, -0.3708], currentBlinker = 'OFF', lastSend = 0;
-    let routeCoords = []; // Pour le tracé
 
-    // --- INITIALISATION CARTE ---
-    const map = L.map('map', { zoomControl: false, fadeAnimation: true }).setView(robotPos, 18);
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png').addTo(map);
+    // --- CARTES ---
+    const map = L.map('map', {zoomControl: false}).setView(robotPos, 18);
+    const darkLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png').addTo(map);
+    const satLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}');
 
-    // Tracé de la route
-    const polyline = L.polyline([], {color: 'var(--accent)', weight: 4, opacity: 0.6, smoothFactor: 1}).addTo(map);
-    
-    // Marqueurs avec transitions fluides
     const haloM = L.marker(robotPos, {icon: L.divIcon({className:'robot-halo', iconSize:[60,60]})}).addTo(map);
     const robotM = L.marker(robotPos, {icon: L.icon({iconUrl:'/static/ico.png', iconSize:[50,50], iconAnchor:[25,38]})}).addTo(map);
 
-    L.Control.geocoder({defaultMarkGeocode:false}).on('markgeocode', e => map.panTo(e.geocode.center, {animate: true})).addTo(map);
+    function setMapStyle(s) {
+        if(s === 'sat') { map.addLayer(satLayer); map.removeLayer(darkLayer); }
+        else { map.addLayer(darkLayer); map.removeLayer(satLayer); }
+        document.getElementById('btn-dark').classList.toggle('active', s==='dark');
+        document.getElementById('btn-sat').classList.toggle('active', s==='sat');
+    }
 
-    // --- CONTROLES ---
+    // --- ROUTAGE PIETON ---
+    const routing = L.Routing.control({
+        waypoints: [],
+        router: L.Routing.osrmv1({ serviceUrl: 'https://router.project-osrm.org/route/v1', profile: 'foot' }),
+        lineOptions: { styles: [{ color: '#00d4ff', weight: 5, opacity: 0.8 }] },
+        createMarker: () => null,
+        show: false
+    }).addTo(map);
+
+    L.Control.geocoder({defaultMarkGeocode:false}).on('markgeocode', e => {
+        const dest = e.geocode.center;
+        routing.setWaypoints([L.latLng(robotM.getLatLng()), L.latLng(dest)]);
+        map.panTo(dest, {animate: true});
+    }).addTo(map);
+
+    // --- GAMEPAD ---
     let lastB1=false, lastB2=false, lastB3=false, lastH=false, bInterval=null;
 
     function update() {
         const gp = navigator.getGamepads()[0];
         if(!gp) return requestAnimationFrame(update);
-
         if(gp.buttons[4].pressed && !lastB1) toggleB('L');
         if(gp.buttons[5].pressed && !lastB2) toggleB('R');
         if(gp.buttons[3].pressed && !lastB3) toggleB('W');
         if(gp.buttons[14].pressed && !lastH) { gongSon.currentTime=0; gongSon.play().catch(()=>{}); }
-
         lastB1=gp.buttons[4].pressed; lastB2=gp.buttons[5].pressed; lastB3=gp.buttons[3].pressed; lastH=gp.buttons[14].pressed;
-        
         document.getElementById('fillL2').style.height = (gp.buttons[6].value * 100) + "%";
         document.getElementById('fillR2').style.height = (gp.buttons[7].value * 100) + "%";
-
         const now = Date.now();
         if(now - lastSend > 50) {
             socket.emit('drive_cmd', { v: Math.round((gp.buttons[7].value - gp.buttons[6].value) * 255), d: Math.round(gp.axes[0] * 255), blinker: currentBlinker, horn: lastH });
@@ -118,25 +141,25 @@
             if(currentBlinker==='L') { cam.classList.add('flash-L'); dL.classList.add('active-dot'); }
             if(currentBlinker==='R') { cam.classList.add('flash-R'); dR.classList.add('active-dot'); }
             if(currentBlinker==='W') { cam.classList.add('flash-W'); dL.classList.add('active-dot'); dR.classList.add('active-dot'); }
-            tickSon.play().catch(()=>{});
-            bInterval = setInterval(() => { tickSon.currentTime=0; tickSon.play().catch(()=>{}); }, 800);
+            tickSon.play();
+            bInterval = setInterval(() => { tickSon.currentTime=0; tickSon.play(); }, 800);
         }
     }
 
-    // --- RECEPTION GPS & CENTRAGE ---
+    // --- GPS UPDATE & AUTO-CENTER ---
     socket.on('map_update', d => {
         const p = [d.lat, d.lng];
-        
-        // Mise à jour fluide du tracé
-        routeCoords.push(p);
-        polyline.setLatLngs(routeCoords);
-
-        // Centrage automatique avec glissement (panTo)
-        map.panTo(p, { animate: true, duration: 1.0 });
-        
-        // Déplacement fluide du robot
         robotM.setLatLng(p);
         haloM.setLatLng(p);
+        
+        // Maintient le robot au centre de la carte en permanence
+        map.panTo(p, { animate: true, duration: 1.0 });
+
+        // Met à jour le point de départ du trajet si une destination est active
+        const wps = routing.getWaypoints();
+        if (wps[1] && wps[1].latLng) {
+            routing.spliceWaypoints(0, 1, L.latLng(p));
+        }
 
         document.getElementById('speed-display').innerText = Math.round(d.speed || 0);
     });
