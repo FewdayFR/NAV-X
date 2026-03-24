@@ -36,6 +36,7 @@ except:
 def index():
     return render_template('index.html')
 
+
 @socketio.on('drive_cmd')
 def handle_drive(data):
     v = data.get('v', 0)
