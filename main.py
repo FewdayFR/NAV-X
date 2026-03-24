@@ -55,7 +55,10 @@ def handle_drive(data):
     elif b_str == 'R': b = 2
     elif b_str == 'W': b = 3
 
-    # Envoi immédiat à l'ESP32
+   if data.get('horn'):
+        # Commande système pour jouer un son sur Linux/Raspberry
+        # Assure-toi d'avoir installé 'mpg123' ou 'paplay'
+        os.system("paplay static/gong.mp3 &")
     if ser:
         try:
             message = f"{v},{b},{d}\n"
