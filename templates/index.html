@@ -96,74 +96,77 @@
     }
 
     // --- ROUTAGE PIETON ---
-    const routing = L.Routing.control({
+   const routing = L.Routing.control({
         waypoints: [],
-        router: L.Routing.osrmv1({ serviceUrl: 'https://router.project-osrm.org/route/v1', profile: 'foot' }),
-        lineOptions: { styles: [{ color: '#00d4ff', weight: 5, opacity: 0.8 }] },
-        createMarker: () => null,
-        show: false
+        router: L.Routing.osrmv1({ 
+            serviceUrl: 'https://router.project-osrm.org/route/v1', 
+            profile: 'foot' // Mode PIÉTON
+        }),
+        lineOptions: { 
+            styles: [{ color: '#00d4ff', weight: 6, opacity: 0.9 }],
+            addWaypoints: false, // EMPECHE d'ajouter des points en cliquant sur la ligne
+            extendWaypoints: false
+        },
+        createMarker: function(i, wp) {
+            // On ne crée un marqueur que pour la destination (index 1)
+            if (i === 1) {
+                return L.marker(wp.latLng, {
+                    draggable: true,
+                    icon: L.icon({
+                        iconUrl: 'https://cdn-icons-png.flaticon.com/512/684/684908.png',
+                        iconSize: [30, 30],
+                        iconAnchor: [15, 30]
+                    })
+                }).bindPopup("Destination");
+            }
+            return null; // Pas de marqueur sur le robot (déjà existant)
+        },
+        show: false,
+        addWaypoints: false // Désactive l'ajout de points par clic sur la carte via le controler
     }).addTo(map);
 
-    L.Control.geocoder({defaultMarkGeocode:false}).on('markgeocode', e => {
+    // --- INTERCEPTION DU CLIC SUR LA CARTE ---
+    // On empêche Leaflet de vider les waypoints au clic
+    map.on('click', function(e) {
+        // Si tu veux que le clic définisse une NOUVELLE destination au lieu de la recherche :
+        // setDestination(e.latlng); 
+    });
+
+    // Fonction pour définir la destination proprement
+    function setDestination(latlng) {
+        const start = robotM.getLatLng();
+        routing.setWaypoints([
+            L.latLng(start.lat, start.lng),
+            L.latLng(latlng.lat, latlng.lng)
+        ]);
+    }
+
+    // --- RECHERCHE GEOCODER ---
+    L.Control.geocoder({ defaultMarkGeocode: false, placeholder: "Où aller ?" })
+    .on('markgeocode', function(e) {
         const dest = e.geocode.center;
-        routing.setWaypoints([L.latLng(robotM.getLatLng()), L.latLng(dest)]);
-        map.panTo(dest, {animate: true});
+        setDestination(dest);
+        map.flyTo(dest, 18);
     }).addTo(map);
 
-    // --- GAMEPAD ---
-    let lastB1=false, lastB2=false, lastB3=false, lastH=false, bInterval=null;
-
-    function update() {
-        const gp = navigator.getGamepads()[0];
-        if(!gp) return requestAnimationFrame(update);
-        if(gp.buttons[4].pressed && !lastB1) toggleB('L');
-        if(gp.buttons[5].pressed && !lastB2) toggleB('R');
-        if(gp.buttons[3].pressed && !lastB3) toggleB('W');
-        if(gp.buttons[14].pressed && !lastH) { gongSon.currentTime=0; gongSon.play().catch(()=>{}); }
-        lastB1=gp.buttons[4].pressed; lastB2=gp.buttons[5].pressed; lastB3=gp.buttons[3].pressed; lastH=gp.buttons[14].pressed;
-        document.getElementById('fillL2').style.height = (gp.buttons[6].value * 100) + "%";
-        document.getElementById('fillR2').style.height = (gp.buttons[7].value * 100) + "%";
-        const now = Date.now();
-        if(now - lastSend > 50) {
-            socket.emit('drive_cmd', { v: Math.round((gp.buttons[7].value - gp.buttons[6].value) * 255), d: Math.round(gp.axes[0] * 255), blinker: currentBlinker, horn: lastH });
-            lastSend = now;
-        }
-        requestAnimationFrame(update);
-    }
-
-    function toggleB(m) {
-        const cam = document.getElementById('cam-card'), dL = document.getElementById('dotL'), dR = document.getElementById('dotR');
-        currentBlinker = (currentBlinker !== 'OFF') ? 'OFF' : m;
-        cam.className = 'card camera-container';
-        dL.classList.remove('active-dot'); dR.classList.remove('active-dot');
-        if(bInterval) { clearInterval(bInterval); bInterval = null; tickSon.pause(); }
-        if(currentBlinker !== 'OFF') {
-            if(currentBlinker==='L') { cam.classList.add('flash-L'); dL.classList.add('active-dot'); }
-            if(currentBlinker==='R') { cam.classList.add('flash-R'); dR.classList.add('active-dot'); }
-            if(currentBlinker==='W') { cam.classList.add('flash-W'); dL.classList.add('active-dot'); dR.classList.add('active-dot'); }
-            tickSon.play();
-            bInterval = setInterval(() => { tickSon.currentTime=0; tickSon.play(); }, 800);
-        }
-    }
-
-    // --- GPS UPDATE & AUTO-CENTER ---
+    // --- MISE À JOUR GPS (SOCKET) ---
     socket.on('map_update', d => {
         const p = [d.lat, d.lng];
         robotM.setLatLng(p);
         haloM.setLatLng(p);
         
-        // Maintient le robot au centre de la carte en permanence
-        map.panTo(p, { animate: true, duration: 1.0 });
+        // AUTO-CENTRE
+        map.panTo(p, { animate: true, duration: 0.8 });
 
-        // Met à jour le point de départ du trajet si une destination est active
+        // MISE À JOUR DYNAMIQUE DE LA ROUTE
         const wps = routing.getWaypoints();
         if (wps[1] && wps[1].latLng) {
+            // On remplace uniquement le point de départ par la nouvelle position du robot
             routing.spliceWaypoints(0, 1, L.latLng(p));
         }
 
         document.getElementById('speed-display').innerText = Math.round(d.speed || 0);
     });
-
     window.addEventListener("gamepadconnected", () => requestAnimationFrame(update));
 </script>
 </body>
