@@ -26,18 +26,32 @@ body {
 .dashboard-grid { display: grid; grid-template-columns: 1fr 2fr; grid-template-rows: calc(100vh - 275px) 180px; gap: 15px; max-width: 1800px; margin: 15px auto; padding: 0 15px; }
 .card { background: var(--card); border-radius: 20px; border: 1px solid var(--border); position: relative; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.5); }
 
-/* Map & Radar Effect */
+/* Map & Robot Marker */
 #map { width: 100%; height: 100%; background: #000; border-radius: 20px; }
+
+/* Rond bleu transparent statique */
 .robot-halo { 
-    background: rgba(0, 212, 255, 0.15); 
-    border: 2px solid var(--accent);
+    background: rgba(0, 212, 255, 0.2); 
+    border: 1px solid rgba(0, 212, 255, 0.4);
     border-radius: 50%; 
-    box-shadow: 0 0 15px var(--accent);
-    animation: pulse-ring 2s infinite;
 }
-@keyframes pulse-ring {
-    0% { transform: scale(0.7); opacity: 0.8; }
-    100% { transform: scale(1.3); opacity: 0; }
+
+/* Style de la barre de recherche (Geocoder) */
+.leaflet-control-geocoder {
+    background: var(--card) !important;
+    border: 1px solid var(--border) !important;
+    border-radius: 10px !important;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.5) !important;
+}
+.leaflet-control-geocoder-icon {
+    background-color: transparent !important;
+    filter: invert(1); /* Rend l'icône loupe blanche */
+}
+.leaflet-control-geocoder-form input {
+    color: white !important;
+    background: transparent !important;
+    border: none !important;
+    padding: 10px !important;
 }
 
 .map-selector { position: absolute; bottom: 15px; left: 15px; z-index: 1000; display: flex; gap: 5px; background: rgba(0,0,0,0.8); padding: 5px; border-radius: 8px; border: 1px solid var(--border); }

@@ -11,7 +11,7 @@ const map = L.map('map', {zoomControl: false}).setView(robotPos, 18);
 const darkLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png').addTo(map);
 const satLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}');
 
-// Markers
+// Markers (Halo statique)
 const haloM = L.marker(robotPos, {icon: L.divIcon({className:'robot-halo', iconSize:[60,60]})}).addTo(map);
 const robotM = L.marker(robotPos, {icon: L.icon({iconUrl:'/static/ico.png', iconSize:[50,50], iconAnchor:[25,38]})}).addTo(map);
 
@@ -27,17 +27,21 @@ function setMapStyle(s) {
     document.getElementById('btn-sat').classList.toggle('active', s==='sat');
 }
 
-// Navigation
+// Recherche et Navigation stylisée
+const geocoder = L.Control.geocoder({
+    defaultMarkGeocode: false,
+    placeholder: "Rechercher une destination...",
+    errorMessage: "Lieu introuvable"
+}).on('markgeocode', e => {
+    routing.setWaypoints([L.latLng(robotM.getLatLng()), L.latLng(e.geocode.center)]);
+    map.panTo(e.geocode.center, {animate: true});
+}).addTo(map);
+
 const routing = L.Routing.control({
     waypoints: [],
     router: L.Routing.osrmv1({ serviceUrl: 'https://router.project-osrm.org/route/v1', profile: 'foot' }),
     lineOptions: { styles: [{ color: '#00d4ff', weight: 6, opacity: 0.8 }] },
     createMarker: () => null, show: false
-}).addTo(map);
-
-L.Control.geocoder({defaultMarkGeocode:false}).on('markgeocode', e => {
-    routing.setWaypoints([L.latLng(robotM.getLatLng()), L.latLng(e.geocode.center)]);
-    map.panTo(e.geocode.center, {animate: true});
 }).addTo(map);
 
 let lastB1=false, lastB2=false, lastB3=false;
@@ -52,12 +56,10 @@ function update() {
     }
     document.getElementById('gp-status').innerText = "CONNECTED";
 
-    // Gestion Clignotants
     if(gp.buttons[4].pressed && !lastB1) toggleB('L');
     if(gp.buttons[5].pressed && !lastB2) toggleB('R');
     if(gp.buttons[3].pressed && !lastB3) toggleB('W');
     
-    // Gestion Gong (Navigateur + Signal)
     if(gp.buttons[14].pressed && !lastH) {
         soundGong.play();
         lastH = true;
@@ -67,7 +69,6 @@ function update() {
 
     lastB1=gp.buttons[4].pressed; lastB2=gp.buttons[5].pressed; lastB3=gp.buttons[3].pressed; 
 
-    // Visualisation
     document.getElementById('fillL2').style.height = (gp.buttons[6].value * 100) + "%";
     document.getElementById('fillR2').style.height = (gp.buttons[7].value * 100) + "%";
 
@@ -87,12 +88,9 @@ function update() {
 function toggleB(m) {
     const cam = document.getElementById('cam-card'), dL = document.getElementById('dotL'), dR = document.getElementById('dotR');
     currentBlinker = (currentBlinker !== 'OFF') ? 'OFF' : m;
-    
     if(currentBlinker !== 'OFF') soundClick.play();
-
     cam.className = 'card camera-container';
     dL.classList.remove('active-dot'); dR.classList.remove('active-dot');
-    
     if(currentBlinker !== 'OFF') {
         if(currentBlinker==='L') { cam.classList.add('flash-L'); dL.classList.add('active-dot'); }
         if(currentBlinker==='R') { cam.classList.add('flash-R'); dR.classList.add('active-dot'); }
