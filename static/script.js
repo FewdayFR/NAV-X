@@ -11,9 +11,14 @@ const haloM = L.marker(robotPos, {icon: L.divIcon({className:'robot-halo', iconS
 const robotM = L.marker(robotPos, {icon: L.icon({iconUrl:'/static/ico.png', iconSize:[50,50], iconAnchor:[25,38]})}).addTo(map);
 
 // NAVIGATION
+// Remplace ton bloc routing par celui-ci
 const routing = L.Routing.control({
     waypoints: [],
-    router: L.Routing.openrouteservice(ORS_KEY, { profile: 'foot-walking' }),
+    router: new L.Routing.OpenRouteService(ORS_KEY, {
+        "timeout": 30000,
+        "format": "json",
+        "profile": "foot-walking"
+    }),
     lineOptions: { styles: [{ color: '#00d4ff', weight: 6, opacity: 0.8 }] },
     createMarker: () => null,
     show: false

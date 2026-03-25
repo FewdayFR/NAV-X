@@ -10,27 +10,12 @@ body {
     background: var(--bg); 
     background-image: radial-gradient(circle at center, #0a1025 0%, #02040a 100%); 
     color: white; 
-    font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; 
+    font-family: 'Segoe UI', sans-serif; 
     margin: 0; 
     overflow: hidden; 
 }
 
-/* --- BARRE DE NAVIGATION HAUT --- */
-.tab-bar { 
-    height: 60px; 
-    background: #0d1117; 
-    display: flex; 
-    align-items: center; 
-    justify-content: space-between; 
-    padding: 0 25px; 
-    border-bottom: 1px solid var(--border); 
-    z-index: 1000; 
-    position: relative; 
-}
-.menu-left { display: flex; align-items: center; gap: 20px; }
-.navx-logo { height: 32px; filter: drop-shadow(0 0 5px var(--accent)); }
-
-/* --- GRILLE PRINCIPALE --- */
+/* --- GRID LAYOUT --- */
 .dashboard-grid { 
     display: grid; 
     grid-template-columns: 1fr 2fr; 
@@ -46,60 +31,29 @@ body {
     border: 1px solid var(--border); 
     position: relative; 
     overflow: hidden; 
-    box-shadow: 0 4px 20px rgba(0,0,0,0.5); 
 }
 
-/* --- CARTE & HUD --- */
-#map { width: 100%; height: 100%; background: #000; border-radius: 20px; }
-
-/* Bandeau Distance/Temps */
-.nav-info-banner {
-    position: absolute;
-    top: 20px;
-    left: 50%;
-    transform: translateX(-50%);
-    z-index: 1000;
-    background: rgba(13, 17, 23, 0.85);
-    border: 1px solid var(--accent);
-    padding: 10px 25px;
-    border-radius: 50px;
-    display: flex;
-    gap: 20px;
-    backdrop-filter: blur(10px);
-    box-shadow: 0 0 20px rgba(0, 212, 255, 0.2);
-    display: none;
-}
-.nav-item { display: flex; flex-direction: column; align-items: center; }
-.nav-label { font-size: 9px; color: var(--accent); text-transform: uppercase; letter-spacing: 1px; }
-.nav-value { font-size: 18px; font-weight: bold; color: white; }
-
-/* --- NETTOYAGE RADICAL DES ÉLÉMENTS MÔCHES --- */
-/* On supprime les instructions, les erreurs, les points de liste et les boites blanches */
+/* --- NETTOYAGE RADICAL (Supprime les bugs des captures) --- */
+/* Cache les instructions de texte et les boites blanches d'erreur */
 .leaflet-routing-container, 
-.leaflet-routing-error, 
 .leaflet-control-geocoder-address-context,
-.leaflet-control-geocoder-results ul,
-.leaflet-control-geocoder-error {
-    display: none !important;
+.leaflet-control-geocoder-error { 
+    display: none !important; 
 }
 
-/* On force la liste de résultats à être propre (sans points/bulles) */
-.leaflet-control-geocoder-results {
+/* Supprime les points (puces) et le fond blanc des résultats de recherche */
+.leaflet-control-geocoder-results ul {
     list-style: none !important;
     padding: 0 !important;
     margin: 0 !important;
-    background: #0d1117 !important;
-    border: 1px solid var(--border) !important;
-    border-top: none !important;
-    border-radius: 0 0 12px 12px !important;
 }
 
 .leaflet-control-geocoder-results li {
-    list-style: none !important;
-    padding: 10px 15px !important;
+    background: #0d1117 !important;
     color: white !important;
-    border-bottom: 1px solid #21262d !important;
-    cursor: pointer;
+    border-bottom: 1px solid var(--border) !important;
+    padding: 12px !important;
+    list-style-type: none !important;
 }
 
 .leaflet-control-geocoder-results li:hover {
@@ -107,32 +61,15 @@ body {
     color: var(--accent) !important;
 }
 
-/* Barre de recherche style HUD */
-.leaflet-control-geocoder {
-    background: rgba(13, 17, 23, 0.9) !important;
-    border: 1px solid var(--border) !important;
-    border-radius: 12px !important;
-    box-shadow: 0 8px 32px rgba(0,0,0,0.8) !important;
-    backdrop-filter: blur(5px);
-    margin: 15px !important;
+/* --- MAP & HUD --- */
+#map { width: 100%; height: 100%; background: #000; }
+
+.nav-info-banner {
+    position: absolute; top: 20px; left: 50%; transform: translateX(-50%);
+    z-index: 1000; background: rgba(13, 17, 23, 0.9); border: 1px solid var(--accent);
+    padding: 10px 25px; border-radius: 50px; display: none; gap: 20px; backdrop-filter: blur(10px);
 }
 
-.leaflet-control-geocoder-icon {
-    background-color: transparent !important;
-    filter: invert(1) brightness(1.5);
-}
-
-.leaflet-control-geocoder-form input {
-    color: white !important;
-    background: transparent !important;
-    border: none !important;
-    outline: none !important;
-    font-size: 14px !important;
-    padding: 12px !important;
-    width: 280px !important;
-}
-
-/* --- MARQUEURS --- */
 .robot-halo { 
     background: rgba(0, 212, 255, 0.15); 
     border: 1.5px solid rgba(0, 212, 255, 0.3); 
@@ -140,59 +77,26 @@ body {
 }
 
 .map-selector { 
-    position: absolute; 
-    bottom: 15px; 
-    left: 15px; 
-    z-index: 1000; 
-    display: flex; 
-    gap: 5px; 
-    background: rgba(0,0,0,0.7); 
-    padding: 5px; 
-    border-radius: 8px; 
-    border: 1px solid var(--border);
-    backdrop-filter: blur(5px);
+    position: absolute; bottom: 15px; left: 15px; z-index: 1000; 
+    display: flex; gap: 5px; background: rgba(0,0,0,0.8); padding: 5px; border-radius: 8px; 
 }
 .map-selector button { 
-    background: none; 
-    border: 1px solid #444; 
-    color: white; 
-    padding: 6px 14px; 
-    cursor: pointer; 
-    font-size: 11px; 
-    border-radius: 5px; 
-    transition: 0.2s;
+    background: none; border: 1px solid #444; color: white; padding: 5px 12px; 
+    cursor: pointer; font-size: 10px; border-radius: 4px; 
 }
-.map-selector button.active { 
-    border-color: var(--accent); 
-    color: var(--accent); 
-    background: rgba(0, 212, 255, 0.1); 
-}
+.map-selector button.active { border-color: var(--accent); color: var(--accent); }
 
 /* --- CAMERA & FEEDBACK --- */
-.camera-container { position: relative; background: #000; }
-.reflet { position: absolute; inset: 0; pointer-events: none; opacity: 0; z-index: 5; transition: 0.2s; }
-
-@keyframes blink { 0%, 100% { opacity: 0; } 50% { opacity: 1; } }
-.flash-L .reflet { opacity: 1; background: radial-gradient(circle at 0% 50%, var(--orange) 0%, transparent 70%); animation: blink 0.8s infinite; }
-.flash-R .reflet { opacity: 1; background: radial-gradient(circle at 100% 50%, var(--orange) 0%, transparent 70%); animation: blink 0.8s infinite; }
-.flash-W .reflet { opacity: 1; background: linear-gradient(90deg, var(--orange) 0%, transparent 50%, var(--orange) 100%); animation: blink 0.8s infinite; }
-
+.camera-container { position: relative; background: #000; border: 2px solid var(--border); }
 .speed-overlay { 
-    position: absolute; 
-    bottom: 20px; 
-    left: 20px; 
-    z-index: 10; 
-    background: rgba(0,0,0,0.8); 
-    padding: 12px 22px; 
-    border-radius: 15px; 
-    border: 1px solid var(--accent); 
-    backdrop-filter: blur(8px); 
+    position: absolute; bottom: 20px; left: 20px; z-index: 10; 
+    background: rgba(0,0,0,0.85); padding: 12px 20px; border-radius: 15px; border: 1px solid var(--accent); 
 }
-.speed-val { font-size: 42px; font-weight: 900; color: var(--accent); text-shadow: 0 0 10px var(--accent); }
+.speed-val { font-size: 38px; font-weight: 900; color: var(--accent); }
 
-/* --- CONTROLES BAS --- */
+/* --- CONTROLS (JAUGES) --- */
 .controls { grid-column: 1 / span 2; display: grid; grid-template-columns: 150px 1fr 150px; align-items: center; padding: 0 40px; }
-.track { width: 14px; height: 110px; background: #161b22; border-radius: 7px; position: relative; overflow: hidden; border: 1px solid var(--border); }
-.fill { width: 100%; position: absolute; bottom: 0; transition: height 0.1s; background: var(--accent); box-shadow: 0 0 15px var(--accent); }
-.dot { width: 52px; height: 52px; border: 2px solid #30363d; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 24px; color: #444; transition: 0.3s; }
-.active-dot { border-color: var(--orange); color: var(--orange); box-shadow: 0 0 25px var(--orange); animation: blink 0.8s infinite; }
+.track { width: 14px; height: 110px; background: #161b22; border-radius: 7px; position: relative; overflow: hidden; }
+.fill { width: 100%; position: absolute; bottom: 0; background: var(--accent); box-shadow: 0 0 15px var(--accent); transition: height 0.1s; }
+.dot { width: 50px; height: 50px; border: 2px solid #30363d; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 22px; color: #444; }
+.active-dot { border-color: var(--orange); color: var(--orange); box-shadow: 0 0 20px var(--orange); }
