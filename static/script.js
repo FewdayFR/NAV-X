@@ -1,6 +1,8 @@
 const socket = io();
 let robotPos = [43.2951, -0.3708], currentBlinker = 'OFF', lastSend = 0;
 const ORS_KEY = '5b3ce3597851110001cf6248cd33a098943146c4a68f4d127a57c517';
+let lastH = false;
+let lastB1 = false, lastB2 = false, lastB3 = false;
 
 // SONS
 const soundGong = new Audio('/static/gong.mp3');
@@ -22,10 +24,10 @@ const routing = L.Routing.control({
     }),
     lineOptions: { styles: [{ color: '#00d4ff', weight: 6, opacity: 0.8 }] },
     createMarker: () => null,
+    addWaypoints: false,
     show: false
 }).addTo(map);
 
-// Affichage simplifié Temps/Distance
 routing.on('routesfound', function(e) {
     const summary = e.routes[0].summary;
     document.getElementById('nav-info').style.display = 'flex';
@@ -33,7 +35,7 @@ routing.on('routesfound', function(e) {
     document.getElementById('nav-time').innerText = Math.round(summary.totalTime / 60) + " min";
 });
 
-// RECHERCHE D'ADRESSE (ORS Pelias)
+// RECHERCHE D'ADRESSE
 const geocoder = L.Control.Geocoder.pelias(ORS_KEY, {
     placeholder: "Où voulez-vous aller ?",
     limit: 5
@@ -48,17 +50,47 @@ L.Control.geocoder({
     map.panTo(e.geocode.center, {animate: true});
 }).addTo(map);
 
-// Auto-centrage toutes les 5s
+// AUTO-CENTRAGE TOUTES LES 5S
 setInterval(() => {
     map.panTo(robotM.getLatLng(), { animate: true, duration: 1.5 });
 }, 5000);
 
-// Logique Manette & Socket (inchangée)
+// --- BOUCLE DE MISE À JOUR MANETTE ---
 function update() {
     const gamepads = navigator.getGamepads();
     let gp = gamepads[0] || gamepads[1];
-    if(!gp) return requestAnimationFrame(update);
 
+    if (!gp) {
+        // Si pas de manette, on continue de chercher sans bloquer le reste
+        requestAnimationFrame(update);
+        return;
+    }
+
+    // GESTION DES CLIGNOTANTS (Boutons L1, R1, Y/Triangle)
+    if(gp.buttons[4].pressed && !lastB1) toggleB('L');
+    if(gp.buttons[5].pressed && !lastB2) toggleB('R');
+    if(gp.buttons[3].pressed && !lastB3) toggleB('W');
+    
+    // GESTION DU KLAXON (Bouton flèche gauche ou spécifique)
+    if(gp.buttons[14].pressed && !lastH) {
+        soundGong.play();
+        lastH = true;
+    } else if (!gp.buttons[14].pressed) {
+        lastH = false;
+    }
+
+    // Mise à jour des états précédents pour éviter les répétitions
+    lastB1 = gp.buttons[4].pressed; 
+    lastB2 = gp.buttons[5].pressed; 
+    lastB3 = gp.buttons[3].pressed;
+
+    // MISE À JOUR VISUELLE DES JAUGES (Trigger L2 / R2)
+    const fillL = document.getElementById('fillL2');
+    const fillR = document.getElementById('fillR2');
+    if(fillL) fillL.style.height = (gp.buttons[6].value * 100) + "%";
+    if(fillR) fillR.style.height = (gp.buttons[7].value * 100) + "%";
+
+    // ENVOI DES COMMANDES AU SERVEUR (Toutes les 50ms)
     const now = Date.now();
     if(now - lastSend > 50) {
         socket.emit('drive_cmd', { 
@@ -69,10 +101,14 @@ function update() {
         });
         lastSend = now;
     }
+
     requestAnimationFrame(update);
 }
+
+// LANCEMENT DE LA BOUCLE
 requestAnimationFrame(update);
 
+// FONCTIONS UTILES
 function setMapStyle(s) {
     if(s === 'sat') { map.addLayer(satLayer); map.removeLayer(darkLayer); }
     else { map.addLayer(darkLayer); map.removeLayer(satLayer); }
@@ -81,12 +117,30 @@ function setMapStyle(s) {
 }
 
 function toggleB(m) {
-    currentBlinker = (currentBlinker !== 'OFF') ? 'OFF' : m;
+    const cam = document.getElementById('cam-card');
+    const dL = document.getElementById('dotL');
+    const dR = document.getElementById('dotR');
+    
+    currentBlinker = (currentBlinker !== 'OFF' && currentBlinker === m) ? 'OFF' : m;
+    
     if(currentBlinker !== 'OFF') soundClick.play();
+
+    // Reset classes
+    cam.className = 'card camera-container';
+    if(dL) dL.classList.remove('active-dot');
+    if(dR) dR.classList.remove('active-dot');
+    
+    if(currentBlinker !== 'OFF') {
+        if(currentBlinker==='L') { cam.classList.add('flash-L'); if(dL) dL.classList.add('active-dot'); }
+        if(currentBlinker==='R') { cam.classList.add('flash-R'); if(dR) dR.classList.add('active-dot'); }
+        if(currentBlinker==='W') { cam.classList.add('flash-W'); if(dL) dL.classList.add('active-dot'); if(dR) dR.classList.add('active-dot'); }
+    }
 }
 
 socket.on('map_update', d => {
     const p = [d.lat, d.lng];
-    robotM.setLatLng(p); haloM.setLatLng(p);
-    document.getElementById('speed-display').innerText = Math.round(d.speed || 0);
+    robotM.setLatLng(p); 
+    haloM.setLatLng(p);
+    const speedEl = document.getElementById('speed-display');
+    if(speedEl) speedEl.innerText = Math.round(d.speed || 0);
 });
