@@ -1,6 +1,6 @@
 const socket = io();
 
-// --- CONFIGURATION INITIALE ---
+// --- CONFIGURATION CARTE ---
 const map = L.map('map', { zoomControl: false, attributionControl: false }).setView([43.2951, -0.3708], 18);
 const darkLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png').addTo(map);
 const satLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{x}/{y}');
@@ -13,7 +13,7 @@ function setMap(type) {
 }
 
 // --- ÉTAT ET SONS ---
-let blinkerState = 'OFF'; // 'OFF', 'L', 'R', 'W'
+let blinkerState = 'OFF'; 
 let lastButtons = {}; 
 
 const sndBlinker = new Audio('/static/sounds/clignotant.mp3');
@@ -30,23 +30,22 @@ function updateGamepad() {
         statusLabel.innerText = "MANETTE CONNECTÉE";
         statusLabel.style.color = "#00d4ff";
 
-        // Jauges L2 / R2
+        // Jauges L2 (Frein) / R2 (Accel)
         document.getElementById('fill-l2').style.width = (gp.buttons[6].value * 100) + "%";
         document.getElementById('fill-r2').style.width = (gp.buttons[7].value * 100) + "%";
 
-        // Détection des pressions (Front montant uniquement)
-        // L1 = 4, R1 = 5, Y/Triangle = 3, X/Carré = 2
+        // LOGIQUE : L1(4), R1(5), Y(3), X(2)
         if (gp.buttons[4].pressed && !lastButtons[4]) handleBlinkerInput('L');
         if (gp.buttons[5].pressed && !lastButtons[5]) handleBlinkerInput('R');
         if (gp.buttons[3].pressed && !lastButtons[3]) handleBlinkerInput('W');
         
-        // GONG (Bouton 2)
+        // GONG (Bouton Carré/X)
         if (gp.buttons[2].pressed && !lastButtons[2]) {
             sndGong.currentTime = 0;
             sndGong.play();
         }
 
-        // Sauvegarde pour le prochain cycle
+        // Sauvegarde état pour le prochain cycle
         gp.buttons.forEach((btn, i) => { lastButtons[i] = btn.pressed; });
     } else {
         statusLabel.innerText = "SCANNING GAMEPAD...";
@@ -55,29 +54,33 @@ function updateGamepad() {
     requestAnimationFrame(updateGamepad);
 }
 
-// Logique de bascule (Toggle)
+// --- TA LOGIQUE SPÉCIFIQUE D'ANNULATION ---
 function handleBlinkerInput(newMode) {
-    if (blinkerState === newMode) {
-        setBlinker('OFF'); // Si on réappuie sur le même, on coupe
+    // Si un clignotant est déjà allumé (n'importe lequel)
+    if (blinkerState !== 'OFF') {
+        // Peu importe sur quoi on appuie (opposé ou même), on éteint tout
+        setBlinker('OFF');
     } else {
-        setBlinker(newMode); // Sinon on change (éteint l'autre et met le nouveau)
+        // Si tout était éteint, on allume le nouveau mode demandé
+        setBlinker(newMode);
     }
 }
 
 function setBlinker(mode) {
     blinkerState = mode;
 
-    // Nettoyage visuel
+    // Reset visuel total
     document.getElementById('gui-L').classList.remove('is-blinking');
     document.getElementById('gui-R').classList.remove('is-blinking');
     document.querySelectorAll('.led').forEach(el => el.classList.remove('active'));
 
-    // Gestion du son
+    // Gestion Audio
     sndBlinker.pause();
     sndBlinker.currentTime = 0;
 
     if (mode === 'OFF') return;
 
+    // On lance le tic-tac
     sndBlinker.play();
 
     if (mode === 'L' || mode === 'W') {
@@ -93,10 +96,9 @@ function setBlinker(mode) {
     }
 }
 
-// Lancement
 requestAnimationFrame(updateGamepad);
 
-// --- SOCKETS ET PING ---
+// --- SOCKETS & PING ---
 socket.on('robot_status', (data) => {
     document.getElementById('speed').innerText = Math.round(data.speed || 0);
     const esp = document.getElementById('esp-stat');
