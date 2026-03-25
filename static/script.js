@@ -7,14 +7,14 @@ const soundGong = new Audio('/static/gong.mp3');
 const soundClick = new Audio('https://www.soundjay.com/buttons/sounds/button-20.mp3');
 
 // CARTE
-const map = L.map('map', {zoomControl: false}).setView(robotPos, 18);
+const map = L.map('map', {zoomControl: false, attributionControl: false}).setView(robotPos, 18);
 const darkLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png').addTo(map);
 const satLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}');
 
 const haloM = L.marker(robotPos, {icon: L.divIcon({className:'robot-halo', iconSize:[60,60]})}).addTo(map);
 const robotM = L.marker(robotPos, {icon: L.icon({iconUrl:'/static/ico.png', iconSize:[50,50], iconAnchor:[25,38]})}).addTo(map);
 
-// Auto-center 5s
+// Centrage Auto
 setInterval(() => {
     map.panTo(robotM.getLatLng(), { animate: true, duration: 1.5 });
 }, 5000);
@@ -26,31 +26,28 @@ function setMapStyle(s) {
     document.getElementById('btn-sat').classList.toggle('active', s==='sat');
 }
 
-// NAVIGATION
+// NAVIGATION (SANS INSTRUCTIONS)
 const routing = L.Routing.control({
     waypoints: [],
     router: L.Routing.osrmv1({ serviceUrl: 'https://router.project-osrm.org/route/v1', profile: 'foot' }),
     lineOptions: { styles: [{ color: '#00d4ff', weight: 6, opacity: 0.8 }] },
     createMarker: () => null,
     addWaypoints: false,
-    show: false // On cache le panneau par défaut
+    show: false
 }).addTo(map);
 
-// Récupérer les infos de la route pour le bandeau
 routing.on('routesfound', function(e) {
-    const routes = e.routes;
-    const summary = routes[0].summary;
-    const distance = (summary.totalDistance / 1000).toFixed(1) + " km";
-    const time = Math.round(summary.totalTime / 60) + " min";
-    
+    const summary = e.routes[0].summary;
     document.getElementById('nav-info').style.display = 'flex';
-    document.getElementById('nav-dist').innerText = distance;
-    document.getElementById('nav-time').innerText = time;
+    document.getElementById('nav-dist').innerText = (summary.totalDistance / 1000).toFixed(1) + " km";
+    document.getElementById('nav-time').innerText = Math.round(summary.totalTime / 60) + " min";
 });
 
+// GEOCODER
 L.Control.geocoder({
     defaultMarkGeocode: false,
-    placeholder: "Rechercher..."
+    placeholder: "Rechercher une destination...",
+    collapsed: true // Plus joli, se déplie au clic
 }).on('markgeocode', e => {
     routing.setWaypoints([L.latLng(robotM.getLatLng()), L.latLng(e.geocode.center)]);
     map.panTo(e.geocode.center, {animate: true});
@@ -94,7 +91,7 @@ function toggleB(m) {
     dL.classList.remove('active-dot'); dR.classList.remove('active-dot');
     if(currentBlinker !== 'OFF') {
         if(currentBlinker==='L') { cam.classList.add('flash-L'); dL.classList.add('active-dot'); }
-        if(currentBlinker==='R') { cam.classList.add('flash-R'); dR.classList.add('active-dot'); }
+        if(currentBlinker==='R') { cam.classList.add('flash-R'); dL.classList.add('active-dot'); }
         if(currentBlinker==='W') { cam.classList.add('flash-W'); dL.classList.add('active-dot'); dR.classList.add('active-dot'); }
     }
 }
