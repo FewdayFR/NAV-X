@@ -13,10 +13,11 @@
 </head>
 <body>
 
-    <h1>TEST NAVBAR</h1>
+    {% include 'parts/navbar.html' %}
 
     <div class="dashboard-grid">
-       <h1>TEST NAVBAR</h1>
+        {% include 'parts/monitor.html' %}
+        {% include 'parts/controls.html' %}
     </div>
 
     <script src="{{ url_for('static', filename='script.js') }}"></script>
