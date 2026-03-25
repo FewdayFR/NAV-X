@@ -2,68 +2,60 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <title>NAVIX SYSTEM</title>
-    <link rel="stylesheet" href="/static/style.css">
+    <title>NAVX Dashboard</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
-
-    <header class="top-bar">
-        <div class="logo-section">
-            <span class="brand">NAVIX <span class="accent">SYSTEM</span></span>
+    <div class="top-bar">
+        <div class="brand">
+            <img src="/static/logo.png" class="nav-logo" alt="NAVX">
+            NAV<span class="accent">X</span>
         </div>
         <div class="header-status">
-            <div class="stat">ESP32: <span id="esp-stat" class="status-off">OFFLINE</span></div>
-            <div class="stat">PING: <span id="ping-val">--</span>ms</div>
+            <span id="esp-stat" class="status-off">ESP32 OFFLINE</span>
+            <span class="divider">|</span>
+            <span class="ping-text">PING: <span id="ping-val">--</span> ms</span>
         </div>
-    </header>
+    </div>
 
-    <main class="container">
+    <div class="container">
         <div class="panel">
             <div id="map"></div>
-            <div class="map-overlay">
-                <div class="map-buttons">
-                    <button id="btn-dark" class="active" onclick="setMap('dark')">DARK</button>
-                    <button id="btn-sat" onclick="setMap('sat')">SAT</button>
-                </div>
-                <div class="speed-box">
-                    <span id="speed">0</span><small>km/h</small>
-                </div>
-            </div>
+            <div class="speed-box"><span id="speed">0</span> km/h</div>
         </div>
 
         <div class="panel video-panel">
-            <div class="no-signal">NO SIGNAL</div>
-            <img src="/video_feed" class="stream" onerror="this.style.display='none'">
-            
-            <div id="gui-L" class="blink-layer l"></div>
-            <div id="gui-R" class="blink-layer r"></div>
+            <img src="/video_feed" class="stream" onerror="this.style.display='none';">
+            <div id="gui-L" class="halo-light l"></div>
+            <div id="gui-R" class="halo-light r"></div>
         </div>
-    </main>
+    </div>
 
-    <footer class="bottom-ctrl">
-        <div class="gauge-col">
-            <div class="label">FREIN (L2)</div>
-            <div class="bar-bg"><div id="fill-l2" class="bar-fill"></div></div>
+    <div class="bottom-ctrl">
+        <div class="gauge-container">
+            <div class="label">BRAKE</div>
+            <div class="gauge-track"><div id="fill-l2" class="fill brake"></div></div>
         </div>
 
-        <div class="center-col">
-            <div class="lights">
-                <div id="dot-L" class="led">←</div>
-                <div id="dot-W" class="led">⚠</div>
-                <div id="dot-R" class="led">→</div>
-            </div>
-            <div id="joy-label" class="joy-status">SCANNING GAMEPAD...</div>
+        <div class="lights-group">
+            <div id="dot-L" class="icon-btn"><i data-lucide="chevron-left"></i></div>
+            <div id="dot-W" class="icon-btn warn"><i data-lucide="alert-triangle"></i></div>
+            <div id="dot-R" class="icon-btn"><i data-lucide="chevron-right"></i></div>
         </div>
 
-        <div class="gauge-col">
-            <div class="label">ACCEL (R2)</div>
-            <div class="bar-bg"><div id="fill-r2" class="bar-fill"></div></div>
+        <div class="gauge-container">
+            <div class="label">POWER</div>
+            <div class="gauge-track"><div id="fill-r2" class="fill power"></div></div>
         </div>
-    </footer>
+        
+        <div id="joy-label" class="joy-info">WAITING FOR GAMEPAD...</div>
+    </div>
 
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
     <script src="/static/script.js"></script>
+    <script>lucide.createIcons();</script>
 </body>
 </html>
