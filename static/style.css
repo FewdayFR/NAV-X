@@ -23,7 +23,7 @@ body {
 .header-status { display: flex; gap: 20px; font-size: 11px; color: #8b949e; }
 .status-off { color: #ff4444; }
 
-/* MAIN CONTAINER */
+/* MAIN DASHBOARD */
 .container {
     flex: 1; display: grid; grid-template-columns: 1fr 1fr;
     gap: 15px; padding: 15px;
@@ -33,8 +33,8 @@ body {
     border-radius: 12px; position: relative; overflow: hidden;
 }
 
-/* MAP & SPEED HUD */
-#map { width: 100%; height: 100%; z-index: 1; }
+/* CARTE & HUD */
+#map { width: 100%; height: 100%; z-index: 1; background: #000; }
 .map-overlay { position: absolute; inset: 0; z-index: 10; pointer-events: none; }
 .map-buttons { pointer-events: auto; position: absolute; top: 10px; left: 10px; display: flex; gap: 5px; }
 .map-buttons button {
@@ -49,7 +49,7 @@ body {
 }
 #speed { font-size: 2.2rem; font-weight: 900; }
 
-/* VIDEO & CLIGNOTANTS OVERLAY */
+/* CAMERA & CLIGNOTANTS */
 .video-panel { background: black; display: flex; align-items: center; justify-content: center; }
 .stream { width: 100%; height: 100%; object-fit: cover; z-index: 2; }
 .no-signal { position: absolute; color: #222; font-weight: bold; font-size: 12px; z-index: 1; }
@@ -67,7 +67,7 @@ body {
     50% { opacity: 1; }
     100% { opacity: 1; }
 }
-.is-blinking { animation: flash-clign 0.7s infinite; }
+.is-blinking { animation: flash-clign 0.7s steps(1) infinite; }
 
 /* FOOTER */
 .bottom-ctrl {
