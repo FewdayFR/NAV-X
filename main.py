@@ -117,7 +117,7 @@ def background_tasks():
                     
                     if was_disconnected:
                         print("[NAVX] ESP32 CONNECTÉ!")
-                        socketio.emit('esp_status', {'connected': True}, broadcast=True)
+                        socketio.emit('esp_status', {'connected': True}, to=None)
                     
                     # Traiter les données GPS
                     if line.startswith("GPS:"):
@@ -129,7 +129,7 @@ def background_tasks():
                                 socketio.emit('map_update', {
                                     'lat': lat, 
                                     'lng': lng
-                                }, broadcast=True)
+                                }, to=None)
                         except Exception as e:
                             print(f"[ERROR] Erreur parsing GPS: {e}")
                     elif line == "ALIVE":
@@ -139,7 +139,7 @@ def background_tasks():
             if time.time() - last_esp_time > 2.5 and esp_connected:
                 esp_connected = False
                 print("[NAVX] ESP32 DÉCONNECTÉ!")
-                socketio.emit('esp_status', {'connected': False}, broadcast=True)
+                socketio.emit('esp_status', {'connected': False}, to=None)
             
             socketio.sleep(0.05)
         except Exception as e:
