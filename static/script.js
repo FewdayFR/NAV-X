@@ -23,7 +23,45 @@ socket.on('connect_error', (error) => {
 
 // --- CARTE & MARQUEUR ---
 const map = L.map('map', { zoomControl: false, attributionControl: false }).setView([43.2951, -0.3708], 17);
-L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png').addTo(map);
+
+// Créer les deux couches de tuiles
+const darkLayerUrl = 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
+const satelliteLayerUrl = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
+
+const darkLayer = L.tileLayer(darkLayerUrl);
+const satelliteLayer = L.tileLayer(satelliteLayerUrl);
+
+// Ajouter la couche par défaut
+darkLayer.addTo(map);
+
+let currentLayer = 'dark';
+
+// Fonction pour basculer entre les couches
+function toggleMapLayer() {
+    if (currentLayer === 'dark') {
+        map.removeLayer(darkLayer);
+        map.addLayer(satelliteLayer);
+        currentLayer = 'satellite';
+        const btn = document.getElementById('map-toggle-btn');
+        if (btn) btn.innerText = '🛰️ SATELLITE';
+        console.log('[NAVX] Fond de carte: SATELLITE');
+    } else {
+        map.removeLayer(satelliteLayer);
+        map.addLayer(darkLayer);
+        currentLayer = 'dark';
+        const btn = document.getElementById('map-toggle-btn');
+        if (btn) btn.innerText = '🗺️ CLASSIQUE';
+        console.log('[NAVX] Fond de carte: CLASSIQUE');
+    }
+}
+
+// Écouter le clic sur le bouton (sera créé dans le HTML)
+document.addEventListener('DOMContentLoaded', () => {
+    const btn = document.getElementById('map-toggle-btn');
+    if (btn) {
+        btn.addEventListener('click', toggleMapLayer);
+    }
+});
 
 const robotIcon = L.icon({
     iconUrl: '/static/ico.png',

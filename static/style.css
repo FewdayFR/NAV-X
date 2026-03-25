@@ -32,6 +32,9 @@ body { margin: 0; background: var(--bg); color: white; font-family: 'Segoe UI', 
 
 .speed-box { position: absolute; bottom: 15px; right: 15px; background: rgba(0,0,0,0.85); padding: 10px 20px; border-radius: 8px; border-left: 4px solid var(--accent); font-size: 1.6rem; font-weight: bold; }
 
+.map-toggle { position: absolute; top: 15px; right: 15px; background: rgba(0,0,0,0.85); border: 1px solid var(--accent); color: var(--accent); padding: 10px 16px; border-radius: 8px; font-size: 11px; font-weight: bold; cursor: pointer; transition: all 0.2s; z-index: 10; }
+.map-toggle:hover { background: rgba(0,212,255,0.15); box-shadow: 0 0 10px var(--accent); transform: scale(1.05); }
+
 /* FOOTER & GAUGES */
 .bottom-ctrl { height: 140px; background: #06080c; border-top: 1px solid #1e2530; display: flex; align-items: center; justify-content: center; gap: 60px; position: relative; }
 

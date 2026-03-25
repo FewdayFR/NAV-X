@@ -19,15 +19,46 @@ ser_lock = threading.Lock()
 # --- CONNEXION SÉRIE (ESP32) ---
 ser = None
 print("[NAVX] Recherche ESP32...")
-try:
-    ser = serial.Serial('/dev/ttyUSB0', 115200, timeout=0.1, write_timeout=0)
-    print("[NAVX] ESP32 trouvé sur /dev/ttyUSB0")
-except Exception as e:
+
+def find_esp32_port():
+    """Détecte automatiquement le port de l'ESP32"""
+    import glob
+    ports = []
+    
+    # Chercher ports USB
+    for pattern in ['/dev/ttyUSB*', '/dev/ttyACM*', '/dev/ttyS*']:
+        ports.extend(glob.glob(pattern))
+    
+    print(f"[DEBUG] Ports trouvés: {ports}")
+    
+    for port in sorted(ports):
+        try:
+            test_ser = serial.Serial(port, 115200, timeout=0.5)
+            # Essayer de lire des données (timeout 1 sec)
+            import time as t
+            start = t.time()
+            while t.time() - start < 1.0:
+                if test_ser.in_waiting > 0:
+                    test_ser.close()
+                    return port
+            test_ser.close()
+        except:
+            pass
+    
+    return None
+
+# Chercher le port automatiquement
+detected_port = find_esp32_port()
+
+if detected_port:
     try:
-        ser = serial.Serial('/dev/ttyACM0', 115200, timeout=0.1, write_timeout=0)
-        print("[NAVX] ESP32 trouvé sur /dev/ttyACM0")
+        ser = serial.Serial(detected_port, 115200, timeout=0.1, write_timeout=0)
+        print(f"[NAVX] ✓ ESP32 trouvé sur {detected_port}")
     except Exception as e:
-        print(f"[ERROR] ESP32 non détecté: {e}")
+        print(f"[ERROR] Impossible de se connecter à {detected_port}: {e}")
+else:
+    print("[ERROR] ESP32 non détecté sur aucun port série")
+    print("[INFO] Utilisez debug_esp32.py pour diagnostiquer le problème")
 
 @app.route('/')
 def index():
