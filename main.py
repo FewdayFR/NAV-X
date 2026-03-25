@@ -64,6 +64,12 @@ else:
 def index():
     return render_template('index.html')
 
+@socketio.on('connect')
+def handle_connect():
+    """Envoyer le statut ESP32 au client qui vient de se connecter"""
+    socketio.emit('esp_status', {'connected': esp_connected})
+    print(f"[NAVX] Client connecté - ESP32 status: {'ONLINE' if esp_connected else 'OFFLINE'}")
+
 @socketio.on('drive_cmd')
 def handle_drive(data):
     global last_horn_time, last_drive_cmd
@@ -117,7 +123,7 @@ def background_tasks():
                     
                     if was_disconnected:
                         print("[NAVX] ESP32 CONNECTÉ!")
-                        socketio.emit('esp_status', {'connected': True}, to=None)
+                        socketio.emit('esp_status', {'connected': True})
                     
                     # Traiter les données GPS
                     if line.startswith("GPS:"):
@@ -129,7 +135,7 @@ def background_tasks():
                                 socketio.emit('map_update', {
                                     'lat': lat, 
                                     'lng': lng
-                                }, to=None)
+                                })
                         except Exception as e:
                             print(f"[ERROR] Erreur parsing GPS: {e}")
                     elif line == "ALIVE":
@@ -139,7 +145,7 @@ def background_tasks():
             if time.time() - last_esp_time > 2.5 and esp_connected:
                 esp_connected = False
                 print("[NAVX] ESP32 DÉCONNECTÉ!")
-                socketio.emit('esp_status', {'connected': False}, to=None)
+                socketio.emit('esp_status', {'connected': False})
             
             socketio.sleep(0.05)
         except Exception as e:
