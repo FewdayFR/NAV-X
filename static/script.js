@@ -1,4 +1,25 @@
-const socket = io();
+const socket = io({
+    reconnection: true,
+    reconnectionDelay: 1000,
+    reconnectionDelayMax: 5000,
+    reconnectionAttempts: Infinity,
+    transports: ['websocket', 'polling']
+});
+
+// --- CONNEXION SOCKET ---
+socket.on('connect', () => {
+    console.log('[NAVX] Connecté au serveur');
+    document.getElementById('joy-label').style.borderColor = '#00d4ff';
+});
+
+socket.on('disconnect', () => {
+    console.log('[NAVX] Déconnecté du serveur');
+    document.getElementById('joy-label').style.borderColor = '#ff0000';
+});
+
+socket.on('connect_error', (error) => {
+    console.error('[ERROR] Erreur connexion:', error);
+});
 
 // --- CARTE & MARQUEUR ---
 const map = L.map('map', { zoomControl: false, attributionControl: false }).setView([43.2951, -0.3708], 17);
@@ -16,6 +37,8 @@ let blinkerState = 'OFF';
 let lastButtons = {};
 const sndBlinker = new Audio('https://lasonotheque.org/UPLOAD/mp3/3110.mp3');
 sndBlinker.loop = true;
+const sndGong = new Audio('/static/gong.mp3');
+sndGong.volume = 1.0;
 
 function updateGamepad() {
     const gp = navigator.getGamepads()[0] || navigator.getGamepads()[1];
@@ -28,23 +51,58 @@ function updateGamepad() {
         document.getElementById('fill-r2').style.height = (gp.buttons[7].value * 100) + "%";
 
         // Détection boutons clignotants
-        if (gp.buttons[4].pressed && !lastButtons[4]) toggleBlinker('L');
-        if (gp.buttons[5].pressed && !lastButtons[5]) toggleBlinker('R');
-        if (gp.buttons[3].pressed && !lastButtons[3]) toggleBlinker('W');
+        if (gp.buttons[4].pressed && !lastButtons[4]) {
+            toggleBlinker('L');
+            console.log('[NAVX] Clignotant GAUCHE');
+        }
+        if (gp.buttons[5].pressed && !lastButtons[5]) {
+            toggleBlinker('R');
+            console.log('[NAVX] Clignotant DROIT');
+        }
+        if (gp.buttons[3].pressed && !lastButtons[3]) {
+            toggleBlinker('W');
+            console.log('[NAVX] Warning');
+        }
+        
+        // Détection flèche gauche pour gong
+        if (gp.buttons[14].pressed && !lastButtons[14]) {
+            sndGong.currentTime = 0;
+            sndGong.play().catch(() => {});
+            console.log('[NAVX] GONG!');
+        }
 
-        socket.emit('drive_cmd', {
-            v: Math.round(gp.buttons[7].value * 100),
-            d: Math.round(gp.axes[0] * 100),
-            blinker: blinkerState,
-            horn: gp.buttons[14] ? gp.buttons[14].pressed : false
-        });
+        // Envoi commande de conduite
+        if (socket.connected) {
+            socket.emit('drive_cmd', {
+                v: Math.round(gp.buttons[7].value * 100),
+                d: Math.round(gp.axes[0] * 100),
+                blinker: blinkerState,
+                horn: gp.buttons[14] ? gp.buttons[14].pressed : false
+            });
+        }
+        
         gp.buttons.forEach((btn, i) => { lastButtons[i] = btn.pressed; });
+    } else {
+        document.getElementById('joy-label').innerText = "WAITING FOR GAMEPAD...";
+        document.getElementById('joy-label').style.color = "#ff6b6b";
     }
     requestAnimationFrame(updateGamepad);
 }
 
 function toggleBlinker(mode) {
-    blinkerState = (blinkerState === mode) ? 'OFF' : mode;
+    // Si le même bouton est appuyé → éteint
+    if (blinkerState === mode) {
+        blinkerState = 'OFF';
+    } 
+    // Si aucun clignotant actif → allume le nouveau
+    else if (blinkerState === 'OFF') {
+        blinkerState = mode;
+    } 
+    // Si un autre clignotant est actif → éteint l'actuel
+    else {
+        blinkerState = 'OFF';
+    }
+
     document.querySelectorAll('.halo-light, .icon-btn').forEach(e => e.classList.remove('active-sync'));
     sndBlinker.pause();
 
@@ -73,10 +131,12 @@ socket.on('esp_status', (data) => {
         s.innerText = "ESP32 ONLINE";
         s.classList.remove('status-off');
         s.classList.add('status-on');
+        console.log('[NAVX] ESP32 connecté!');
     } else {
         s.innerText = "ESP32 OFFLINE";
         s.classList.add('status-off');
         s.classList.remove('status-on');
+        console.log('[WARNING] ESP32 déconnecté!');
     }
 });
 
