@@ -1,91 +1,113 @@
 const socket = io();
 
-// --- 1. INITIALISATION CARTE (SANS ROUTING POUR ÉVITER LES CRASHS) ---
+// --- CONFIGURATION INITIALE ---
 const map = L.map('map', { zoomControl: false, attributionControl: false }).setView([43.2951, -0.3708], 18);
 const darkLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png').addTo(map);
 const satLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{x}/{y}');
 
 function setMap(type) {
-    if (type === 'sat') {
-        map.addLayer(satLayer);
-        map.removeLayer(darkLayer);
-    } else {
-        map.addLayer(darkLayer);
-        map.removeLayer(satLayer);
-    }
+    if (type === 'sat') { map.addLayer(satLayer); map.removeLayer(darkLayer); }
+    else { map.addLayer(darkLayer); map.removeLayer(satLayer); }
     document.getElementById('btn-dark').classList.toggle('active', type === 'dark');
     document.getElementById('btn-sat').classList.toggle('active', type === 'sat');
 }
 
-// --- 2. DÉTECTION ET BOUCLE DE LA MANETTE ---
+// --- ÉTAT ET SONS ---
+let blinkerState = 'OFF'; // 'OFF', 'L', 'R', 'W'
+let lastButtons = {}; 
+
+const sndBlinker = new Audio('/static/sounds/clignotant.mp3');
+const sndGong = new Audio('/static/sounds/gong.mp3');
+sndBlinker.loop = true;
+
+// --- BOUCLE DE CONTRÔLE ---
 function updateGamepad() {
-    // On récupère TOUS les gamepads connectés
-    const gamepads = navigator.getGamepads ? navigator.getGamepads() : [];
-    let gp = null;
-
-    // On cherche le premier qui n'est pas nul
-    for (let i = 0; i < gamepads.length; i++) {
-        if (gamepads[i]) {
-            gp = gamepads[i];
-            break;
-        }
-    }
-
+    const gamepads = navigator.getGamepads();
+    const gp = gamepads[0] || gamepads[1];
     const statusLabel = document.getElementById('joy-label');
 
     if (gp) {
-        statusLabel.innerText = "MANETTE CONNECTÉE : " + gp.id.substring(0, 20);
+        statusLabel.innerText = "MANETTE CONNECTÉE";
         statusLabel.style.color = "#00d4ff";
 
-        // Mise à jour des jauges (L2 est souvent l'axe ou bouton 6, R2 le 7)
-        // Attention : sur certains navigateurs ce sont des boutons, sur d'autres des axes.
-        const valL2 = gp.buttons[6].value; // Frein
-        const valR2 = gp.buttons[7].value; // Accel
+        // Jauges L2 / R2
+        document.getElementById('fill-l2').style.width = (gp.buttons[6].value * 100) + "%";
+        document.getElementById('fill-r2').style.width = (gp.buttons[7].value * 100) + "%";
 
-        document.getElementById('fill-l2').style.width = (valL2 * 100) + "%";
-        document.getElementById('fill-r2').style.width = (valR2 * 100) + "%";
+        // Détection des pressions (Front montant uniquement)
+        // L1 = 4, R1 = 5, Y/Triangle = 3, X/Carré = 2
+        if (gp.buttons[4].pressed && !lastButtons[4]) handleBlinkerInput('L');
+        if (gp.buttons[5].pressed && !lastButtons[5]) handleBlinkerInput('R');
+        if (gp.buttons[3].pressed && !lastButtons[3]) handleBlinkerInput('W');
+        
+        // GONG (Bouton 2)
+        if (gp.buttons[2].pressed && !lastButtons[2]) {
+            sndGong.currentTime = 0;
+            sndGong.play();
+        }
 
-        // Gestion des clignotants avec les boutons L1 (4) et R1 (5)
-        updateBlinkers(gp);
+        // Sauvegarde pour le prochain cycle
+        gp.buttons.forEach((btn, i) => { lastButtons[i] = btn.pressed; });
     } else {
-        statusLabel.innerText = "SCANNING GAMEPAD... (APPUYEZ SUR UN BOUTON)";
+        statusLabel.innerText = "SCANNING GAMEPAD...";
         statusLabel.style.color = "#444";
     }
-
     requestAnimationFrame(updateGamepad);
 }
 
-// Lancer la boucle
-requestAnimationFrame(updateGamepad);
-
-function updateBlinkers(gp) {
-    const btnL1 = gp.buttons[4].pressed;
-    const btnR1 = gp.buttons[5].pressed;
-    const btnY = gp.buttons[3].pressed; // Warning
-
-    document.getElementById('gui-L').classList.toggle('is-blinking', btnL1 || btnY);
-    document.getElementById('dot-L').classList.toggle('active', btnL1 || btnY);
-    
-    document.getElementById('gui-R').classList.toggle('is-blinking', btnR1 || btnY);
-    document.getElementById('dot-R').classList.toggle('active', btnR1 || btnY);
-    
-    document.getElementById('dot-W').classList.toggle('active', btnY);
+// Logique de bascule (Toggle)
+function handleBlinkerInput(newMode) {
+    if (blinkerState === newMode) {
+        setBlinker('OFF'); // Si on réappuie sur le même, on coupe
+    } else {
+        setBlinker(newMode); // Sinon on change (éteint l'autre et met le nouveau)
+    }
 }
 
-// --- 3. PING ET SOCKETS ---
+function setBlinker(mode) {
+    blinkerState = mode;
+
+    // Nettoyage visuel
+    document.getElementById('gui-L').classList.remove('is-blinking');
+    document.getElementById('gui-R').classList.remove('is-blinking');
+    document.querySelectorAll('.led').forEach(el => el.classList.remove('active'));
+
+    // Gestion du son
+    sndBlinker.pause();
+    sndBlinker.currentTime = 0;
+
+    if (mode === 'OFF') return;
+
+    sndBlinker.play();
+
+    if (mode === 'L' || mode === 'W') {
+        document.getElementById('gui-L').classList.add('is-blinking');
+        document.getElementById('dot-L').classList.add('active');
+    }
+    if (mode === 'R' || mode === 'W') {
+        document.getElementById('gui-R').classList.add('is-blinking');
+        document.getElementById('dot-R').classList.add('active');
+    }
+    if (mode === 'W') {
+        document.getElementById('dot-W').classList.add('active');
+    }
+}
+
+// Lancement
+requestAnimationFrame(updateGamepad);
+
+// --- SOCKETS ET PING ---
+socket.on('robot_status', (data) => {
+    document.getElementById('speed').innerText = Math.round(data.speed || 0);
+    const esp = document.getElementById('esp-stat');
+    esp.innerText = data.connected ? "CONNECTED" : "OFFLINE";
+    esp.className = data.connected ? "" : "status-off";
+});
+
 setInterval(async () => {
     const start = Date.now();
     try {
         await fetch('/static/style.css', { method: 'HEAD' });
         document.getElementById('ping-val').innerText = Date.now() - start;
-    } catch (e) {
-        document.getElementById('ping-val').innerText = "??";
-    }
+    } catch (e) { document.getElementById('ping-val').innerText = "??"; }
 }, 2000);
-
-socket.on('robot_status', (data) => {
-    document.getElementById('speed').innerText = Math.round(data.speed);
-    const esp = document.getElementById('esp-stat');
-    esp.innerText = data.connected ? "CONNECTED" : "OFFLINE";
-    esp.className = data.connected ? "" : "status-off";
-});

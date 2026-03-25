@@ -3,6 +3,7 @@
     --panel-bg: #0d1117;
     --accent: #00d4ff;
     --border: #30363d;
+    --warn: #ff9800;
 }
 
 * { box-sizing: border-box; }
@@ -22,7 +23,7 @@ body {
 .header-status { display: flex; gap: 20px; font-size: 11px; color: #8b949e; }
 .status-off { color: #ff4444; }
 
-/* MAIN DASHBOARD */
+/* MAIN GRID */
 .container {
     flex: 1; display: grid; grid-template-columns: 1fr 1fr;
     gap: 15px; padding: 15px;
@@ -32,7 +33,7 @@ body {
     border-radius: 12px; position: relative; overflow: hidden;
 }
 
-/* MAP STUFF */
+/* MAP & SPEED */
 #map { width: 100%; height: 100%; z-index: 1; }
 .map-overlay { position: absolute; inset: 0; z-index: 10; pointer-events: none; }
 .map-buttons { pointer-events: auto; position: absolute; top: 10px; left: 10px; display: flex; gap: 5px; }
@@ -43,23 +44,35 @@ body {
 .map-buttons button.active { border-color: var(--accent); color: var(--accent); }
 .speed-box {
     position: absolute; bottom: 15px; right: 15px;
-    background: rgba(0,0,0,0.8); padding: 8px 15px; border-radius: 8px;
+    background: rgba(0,0,0,0.85); padding: 8px 15px; border-radius: 8px;
     border-left: 3px solid var(--accent);
 }
 #speed { font-size: 2rem; font-weight: bold; }
 
-/* VIDEO STUFF */
+/* CAMERA & CLIGNOTANTS */
 .video-panel { background: black; display: flex; align-items: center; justify-content: center; }
-.stream { width: 100%; height: 100%; object-fit: cover; }
-.no-signal { position: absolute; color: #222; font-weight: bold; font-size: 12px; }
+.stream { width: 100%; height: 100%; object-fit: cover; z-index: 2; }
+.no-signal { position: absolute; color: #222; font-weight: bold; font-size: 12px; z-index: 1; }
 
-.blink-layer { position: absolute; inset: 0; width: 20%; opacity: 0; pointer-events: none; z-index: 5; }
-.blink-layer.l { left: 0; background: linear-gradient(to right, rgba(255,165,0,0.3), transparent); }
-.blink-layer.r { right: 0; background: linear-gradient(to left, rgba(255,165,0,0.3), transparent); }
-.is-blinking { animation: flash 0.6s infinite; }
-@keyframes flash { 50% { opacity: 1; } }
+.blink-layer { 
+    position: absolute; top: 0; bottom: 0; width: 30%; 
+    opacity: 0; pointer-events: none; z-index: 100; /* AU DESSUS DE TOUT */
+}
+.blink-layer.l { left: 0; background: linear-gradient(to right, rgba(255, 152, 0, 0.4), transparent); }
+.blink-layer.r { right: 0; background: linear-gradient(to left, rgba(255, 152, 0, 0.4), transparent); }
 
-/* FOOTER */
+@keyframes flash-clign {
+    0% { opacity: 0; }
+    49% { opacity: 0; }
+    50% { opacity: 1; }
+    100% { opacity: 1; }
+}
+
+.is-blinking {
+    animation: flash-clign 0.8s infinite;
+}
+
+/* FOOTER CONTROLS */
 .bottom-ctrl {
     height: 120px; background: #090b10; border-top: 1px solid var(--border);
     display: flex; align-items: center; justify-content: space-around; padding: 0 30px;
@@ -67,12 +80,13 @@ body {
 .gauge-col { width: 220px; text-align: center; }
 .label { font-size: 10px; color: #8b949e; margin-bottom: 8px; }
 .bar-bg { height: 8px; background: #1a1f26; border-radius: 4px; overflow: hidden; }
-.bar-fill { height: 100%; width: 0%; background: var(--accent); box-shadow: 0 0 10px var(--accent); transition: width 0.1s; }
+.bar-fill { height: 100%; width: 0%; background: var(--accent); box-shadow: 0 0 10px var(--accent); transition: width 0.05s; }
 
-.lights { display: flex; gap: 12px; margin-bottom: 8px; justify-content: center; }
+.lights { display: flex; gap: 15px; margin-bottom: 8px; justify-content: center; }
 .led {
-    width: 38px; height: 38px; border-radius: 50%; border: 1px solid var(--border);
-    display: flex; align-items: center; justify-content: center; color: #222; transition: 0.3s;
+    width: 42px; height: 42px; border-radius: 50%; border: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: center; color: #222; 
+    font-size: 1.2rem; transition: 0.2s;
 }
-.led.active { color: orange; border-color: orange; box-shadow: 0 0 15px rgba(255,165,0,0.3); }
-.joy-status { font-size: 9px; color: #444; text-transform: uppercase; }
+.led.active { color: var(--warn); border-color: var(--warn); box-shadow: 0 0 15px rgba(255, 152, 0, 0.4); }
+.joy-status { font-size: 9px; color: #444; letter-spacing: 1px; }
