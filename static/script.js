@@ -38,10 +38,11 @@ L.Control.geocoder({
 
 // --- BOUCLE MANETTE ULTRA-COMPATIBLE ---
 function updateLoop() {
+    // Force le rafraîchissement des périphériques à chaque cycle
     const pads = navigator.getGamepads ? navigator.getGamepads() : [];
     let activePad = null;
 
-    // On cherche n'importe quelle manette connectée
+    // On cherche sur tous les index (0, 1, 2, 3)
     for (let i = 0; i < pads.length; i++) {
         if (pads[i] && pads[i].connected) {
             activePad = pads[i];
@@ -56,9 +57,14 @@ function updateLoop() {
         return;
     }
 
+    // Si on arrive ici, la manette est BIEN là
     if (status) status.innerText = "MANETTE OK";
 
-    // Contrôles clignotants
+    // --- TEST DE SÉCURITÉ : LOG DANS LA CONSOLE ---
+    // Si tu ouvres l'inspecteur (F12), tu verras si les boutons répondent
+    if (activePad.buttons[7].pressed) console.log("Gâchette droite active !");
+
+    // Suite du code (clignotants, socket...)
     if(activePad.buttons[4].pressed && !lastB1) toggleB('L');
     if(activePad.buttons[5].pressed && !lastB2) toggleB('R');
     if(activePad.buttons[3].pressed && !lastB3) toggleB('W');
@@ -66,7 +72,6 @@ function updateLoop() {
     lastB2 = activePad.buttons[5].pressed; 
     lastB3 = activePad.buttons[3].pressed;
 
-    // Envoi Socket
     const now = Date.now();
     if(now - lastSend > 50) {
         socket.emit('drive_cmd', { 
