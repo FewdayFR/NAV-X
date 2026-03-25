@@ -2,27 +2,68 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <title>NAV-X Dashboard</title>
-    <link rel="stylesheet" href="/static/style.css" />
+    <title>NAVIX SYSTEM</title>
+    <link rel="stylesheet" href="/static/style.css">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.css" />
-    <link rel="stylesheet" href="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.css" />
-
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/lrm-openrouteservice@1.2.0/dist/leaflet-routing-openrouteservice.min.js"></script>
-    <script src="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.js"></script>
 </head>
 <body>
 
-    {% include 'parts/navbar.html' %}
+    <header class="top-bar">
+        <div class="logo-section">
+            <span class="brand">NAVIX <span class="accent">SYSTEM</span></span>
+        </div>
+        <div class="header-status">
+            <div class="stat">ESP32: <span id="esp-stat" class="status-off">OFFLINE</span></div>
+            <div class="stat">PING: <span id="ping-val">--</span>ms</div>
+        </div>
+    </header>
 
-    <div class="dashboard-grid">
-        {% include 'parts/monitor.html' %}
-        {% include 'parts/controls.html' %}
-    </div>
+    <main class="container">
+        <div class="panel">
+            <div id="map"></div>
+            <div class="map-overlay">
+                <div class="map-buttons">
+                    <button id="btn-dark" class="active" onclick="setMap('dark')">DARK</button>
+                    <button id="btn-sat" onclick="setMap('sat')">SAT</button>
+                </div>
+                <div class="speed-box">
+                    <span id="speed">0</span><small>km/h</small>
+                </div>
+            </div>
+        </div>
 
-    <script src="{{ url_for('static', filename='script.js') }}"></script>
+        <div class="panel video-panel">
+            <div class="no-signal">NO SIGNAL</div>
+            <img src="/video_feed" class="stream" onerror="this.style.display='none'">
+            
+            <div id="gui-L" class="blink-layer l"></div>
+            <div id="gui-R" class="blink-layer r"></div>
+        </div>
+    </main>
+
+    <footer class="bottom-ctrl">
+        <div class="gauge-col">
+            <div class="label">FREIN (L2)</div>
+            <div class="bar-bg"><div id="fill-l2" class="bar-fill"></div></div>
+        </div>
+
+        <div class="center-col">
+            <div class="lights">
+                <div id="dot-L" class="led">←</div>
+                <div id="dot-W" class="led">⚠</div>
+                <div id="dot-R" class="led">→</div>
+            </div>
+            <div id="joy-label" class="joy-status">SCANNING GAMEPAD...</div>
+        </div>
+
+        <div class="gauge-col">
+            <div class="label">ACCEL (R2)</div>
+            <div class="bar-bg"><div id="fill-r2" class="bar-fill"></div></div>
+        </div>
+    </footer>
+
+    <script src="/static/script.js"></script>
 </body>
 </html>

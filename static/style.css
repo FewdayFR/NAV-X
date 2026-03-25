@@ -1,102 +1,78 @@
-:root { 
-    --bg: #02040a; 
-    --card: rgba(13, 17, 23, 0.95); 
-    --accent: #00d4ff; 
-    --orange: #ff9800; 
-    --border: #30363d; 
+:root {
+    --bg: #05070a;
+    --panel-bg: #0d1117;
+    --accent: #00d4ff;
+    --border: #30363d;
 }
 
-body { 
-    background: var(--bg); 
-    background-image: radial-gradient(circle at center, #0a1025 0%, #02040a 100%); 
-    color: white; 
-    font-family: 'Segoe UI', sans-serif; 
-    margin: 0; 
-    overflow: hidden; 
+* { box-sizing: border-box; }
+body {
+    margin: 0; background: var(--bg); color: white;
+    font-family: 'Segoe UI', sans-serif; height: 100vh;
+    display: flex; flex-direction: column; overflow: hidden;
 }
 
-/* --- GRID LAYOUT --- */
-.dashboard-grid { 
-    display: grid; 
-    grid-template-columns: 1fr 2fr; 
-    grid-template-rows: calc(100vh - 275px) 180px; 
-    gap: 15px; 
-    max-width: 1800px; 
-    margin: 15px auto; 
-    padding: 0 15px; 
+/* HEADER */
+.top-bar {
+    height: 55px; background: #090b10; border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between; padding: 0 20px;
 }
-.card { 
-    background: var(--card); 
-    border-radius: 20px; 
-    border: 1px solid var(--border); 
-    position: relative; 
-    overflow: hidden; 
+.brand { font-weight: 900; letter-spacing: 1px; font-size: 1.1rem; }
+.accent { color: var(--accent); }
+.header-status { display: flex; gap: 20px; font-size: 11px; color: #8b949e; }
+.status-off { color: #ff4444; }
+
+/* MAIN DASHBOARD */
+.container {
+    flex: 1; display: grid; grid-template-columns: 1fr 1fr;
+    gap: 15px; padding: 15px;
+}
+.panel {
+    background: var(--panel-bg); border: 1px solid var(--border);
+    border-radius: 12px; position: relative; overflow: hidden;
 }
 
-/* --- NETTOYAGE RADICAL (Supprime les bugs des captures) --- */
-/* Cache les instructions de texte et les boites blanches d'erreur */
-.leaflet-routing-container, 
-.leaflet-control-geocoder-address-context,
-.leaflet-control-geocoder-error { 
-    display: none !important; 
+/* MAP STUFF */
+#map { width: 100%; height: 100%; z-index: 1; }
+.map-overlay { position: absolute; inset: 0; z-index: 10; pointer-events: none; }
+.map-buttons { pointer-events: auto; position: absolute; top: 10px; left: 10px; display: flex; gap: 5px; }
+.map-buttons button {
+    background: rgba(0,0,0,0.8); border: 1px solid var(--border); color: white;
+    padding: 6px 12px; font-size: 10px; border-radius: 5px; cursor: pointer;
 }
-
-/* Supprime les points (puces) et le fond blanc des résultats de recherche */
-.leaflet-control-geocoder-results ul {
-    list-style: none !important;
-    padding: 0 !important;
-    margin: 0 !important;
+.map-buttons button.active { border-color: var(--accent); color: var(--accent); }
+.speed-box {
+    position: absolute; bottom: 15px; right: 15px;
+    background: rgba(0,0,0,0.8); padding: 8px 15px; border-radius: 8px;
+    border-left: 3px solid var(--accent);
 }
+#speed { font-size: 2rem; font-weight: bold; }
 
-.leaflet-control-geocoder-results li {
-    background: #0d1117 !important;
-    color: white !important;
-    border-bottom: 1px solid var(--border) !important;
-    padding: 12px !important;
-    list-style-type: none !important;
+/* VIDEO STUFF */
+.video-panel { background: black; display: flex; align-items: center; justify-content: center; }
+.stream { width: 100%; height: 100%; object-fit: cover; }
+.no-signal { position: absolute; color: #222; font-weight: bold; font-size: 12px; }
+
+.blink-layer { position: absolute; inset: 0; width: 20%; opacity: 0; pointer-events: none; z-index: 5; }
+.blink-layer.l { left: 0; background: linear-gradient(to right, rgba(255,165,0,0.3), transparent); }
+.blink-layer.r { right: 0; background: linear-gradient(to left, rgba(255,165,0,0.3), transparent); }
+.is-blinking { animation: flash 0.6s infinite; }
+@keyframes flash { 50% { opacity: 1; } }
+
+/* FOOTER */
+.bottom-ctrl {
+    height: 120px; background: #090b10; border-top: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-around; padding: 0 30px;
 }
+.gauge-col { width: 220px; text-align: center; }
+.label { font-size: 10px; color: #8b949e; margin-bottom: 8px; }
+.bar-bg { height: 8px; background: #1a1f26; border-radius: 4px; overflow: hidden; }
+.bar-fill { height: 100%; width: 0%; background: var(--accent); box-shadow: 0 0 10px var(--accent); transition: width 0.1s; }
 
-.leaflet-control-geocoder-results li:hover {
-    background: rgba(0, 212, 255, 0.1) !important;
-    color: var(--accent) !important;
+.lights { display: flex; gap: 12px; margin-bottom: 8px; justify-content: center; }
+.led {
+    width: 38px; height: 38px; border-radius: 50%; border: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: center; color: #222; transition: 0.3s;
 }
-
-/* --- MAP & HUD --- */
-#map { width: 100%; height: 100%; background: #000; }
-
-.nav-info-banner {
-    position: absolute; top: 20px; left: 50%; transform: translateX(-50%);
-    z-index: 1000; background: rgba(13, 17, 23, 0.9); border: 1px solid var(--accent);
-    padding: 10px 25px; border-radius: 50px; display: none; gap: 20px; backdrop-filter: blur(10px);
-}
-
-.robot-halo { 
-    background: rgba(0, 212, 255, 0.15); 
-    border: 1.5px solid rgba(0, 212, 255, 0.3); 
-    border-radius: 50%; 
-}
-
-.map-selector { 
-    position: absolute; bottom: 15px; left: 15px; z-index: 1000; 
-    display: flex; gap: 5px; background: rgba(0,0,0,0.8); padding: 5px; border-radius: 8px; 
-}
-.map-selector button { 
-    background: none; border: 1px solid #444; color: white; padding: 5px 12px; 
-    cursor: pointer; font-size: 10px; border-radius: 4px; 
-}
-.map-selector button.active { border-color: var(--accent); color: var(--accent); }
-
-/* --- CAMERA & FEEDBACK --- */
-.camera-container { position: relative; background: #000; border: 2px solid var(--border); }
-.speed-overlay { 
-    position: absolute; bottom: 20px; left: 20px; z-index: 10; 
-    background: rgba(0,0,0,0.85); padding: 12px 20px; border-radius: 15px; border: 1px solid var(--accent); 
-}
-.speed-val { font-size: 38px; font-weight: 900; color: var(--accent); }
-
-/* --- CONTROLS (JAUGES) --- */
-.controls { grid-column: 1 / span 2; display: grid; grid-template-columns: 150px 1fr 150px; align-items: center; padding: 0 40px; }
-.track { width: 14px; height: 110px; background: #161b22; border-radius: 7px; position: relative; overflow: hidden; }
-.fill { width: 100%; position: absolute; bottom: 0; background: var(--accent); box-shadow: 0 0 15px var(--accent); transition: height 0.1s; }
-.dot { width: 50px; height: 50px; border: 2px solid #30363d; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 22px; color: #444; }
-.active-dot { border-color: var(--orange); color: var(--orange); box-shadow: 0 0 20px var(--orange); }
+.led.active { color: orange; border-color: orange; box-shadow: 0 0 15px rgba(255,165,0,0.3); }
+.joy-status { font-size: 9px; color: #444; text-transform: uppercase; }

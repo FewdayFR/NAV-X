@@ -1,98 +1,91 @@
 const socket = io();
-let robotPos = [43.2951, -0.3708], currentBlinker = 'OFF', lastSend = 0;
-const ORS_KEY = '5b3ce3597851110001cf6248cd33a098943146c4a68f4d127a57c517';
-let lastH = false, lastB1 = false, lastB2 = false, lastB3 = false;
 
-// CARTE
-const map = L.map('map', {zoomControl: false, attributionControl: false}).setView(robotPos, 18);
-L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png').addTo(map);
+// --- 1. INITIALISATION CARTE (SANS ROUTING POUR ÉVITER LES CRASHS) ---
+const map = L.map('map', { zoomControl: false, attributionControl: false }).setView([43.2951, -0.3708], 18);
+const darkLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png').addTo(map);
+const satLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{x}/{y}');
 
-const haloM = L.marker(robotPos, {icon: L.divIcon({className:'robot-halo', iconSize:[60,60]})}).addTo(map);
-const robotM = L.marker(robotPos, {icon: L.icon({iconUrl:'/static/ico.png', iconSize:[50,50], iconAnchor:[25,38]})}).addTo(map);
+function setMap(type) {
+    if (type === 'sat') {
+        map.addLayer(satLayer);
+        map.removeLayer(darkLayer);
+    } else {
+        map.addLayer(darkLayer);
+        map.removeLayer(satLayer);
+    }
+    document.getElementById('btn-dark').classList.toggle('active', type === 'dark');
+    document.getElementById('btn-sat').classList.toggle('active', type === 'sat');
+}
 
-// NAVIGATION
-// Remplace ton bloc routing par celui-ci
-const routing = L.Routing.control({
-    waypoints: [],
-    router: new L.Routing.OpenRouteService(ORS_KEY, {
-        "timeout": 30000,
-        "format": "json",
-        "profile": "foot-walking"
-    }),
-    lineOptions: { styles: [{ color: '#00d4ff', weight: 6, opacity: 0.8 }] },
-    createMarker: () => null,
-    show: false
-}).addTo(map);
+// --- 2. DÉTECTION ET BOUCLE DE LA MANETTE ---
+function updateGamepad() {
+    // On récupère TOUS les gamepads connectés
+    const gamepads = navigator.getGamepads ? navigator.getGamepads() : [];
+    let gp = null;
 
-routing.on('routesfound', (e) => {
-    const s = e.routes[0].summary;
-    document.getElementById('nav-info').style.display = 'flex';
-    document.getElementById('nav-dist').innerText = (s.totalDistance / 1000).toFixed(1) + " km";
-    document.getElementById('nav-time').innerText = Math.round(s.totalTime / 60) + " min";
-});
-
-// RECHERCHE (On retire les options qui polluent l'affichage)
-L.Control.geocoder({
-    geocoder: L.Control.Geocoder.pelias(ORS_KEY, { limit: 5 }),
-    defaultMarkGeocode: false,
-    collapsed: true
-}).on('markgeocode', e => {
-    routing.setWaypoints([L.latLng(robotM.getLatLng()), L.latLng(e.geocode.center)]);
-    map.panTo(e.geocode.center, {animate: true});
-}).addTo(map);
-
-// --- BOUCLE MANETTE ULTRA-COMPATIBLE ---
-function updateLoop() {
-    // Force le rafraîchissement des périphériques à chaque cycle
-    const pads = navigator.getGamepads ? navigator.getGamepads() : [];
-    let activePad = null;
-
-    // On cherche sur tous les index (0, 1, 2, 3)
-    for (let i = 0; i < pads.length; i++) {
-        if (pads[i] && pads[i].connected) {
-            activePad = pads[i];
-            break; 
+    // On cherche le premier qui n'est pas nul
+    for (let i = 0; i < gamepads.length; i++) {
+        if (gamepads[i]) {
+            gp = gamepads[i];
+            break;
         }
     }
 
-    const status = document.getElementById('gp-status');
-    if (!activePad) {
-        if (status) status.innerText = "MANETTE SCAN...";
-        requestAnimationFrame(updateLoop);
-        return;
+    const statusLabel = document.getElementById('joy-label');
+
+    if (gp) {
+        statusLabel.innerText = "MANETTE CONNECTÉE : " + gp.id.substring(0, 20);
+        statusLabel.style.color = "#00d4ff";
+
+        // Mise à jour des jauges (L2 est souvent l'axe ou bouton 6, R2 le 7)
+        // Attention : sur certains navigateurs ce sont des boutons, sur d'autres des axes.
+        const valL2 = gp.buttons[6].value; // Frein
+        const valR2 = gp.buttons[7].value; // Accel
+
+        document.getElementById('fill-l2').style.width = (valL2 * 100) + "%";
+        document.getElementById('fill-r2').style.width = (valR2 * 100) + "%";
+
+        // Gestion des clignotants avec les boutons L1 (4) et R1 (5)
+        updateBlinkers(gp);
+    } else {
+        statusLabel.innerText = "SCANNING GAMEPAD... (APPUYEZ SUR UN BOUTON)";
+        statusLabel.style.color = "#444";
     }
 
-    // Si on arrive ici, la manette est BIEN là
-    if (status) status.innerText = "MANETTE OK";
+    requestAnimationFrame(updateGamepad);
+}
 
-    // --- TEST DE SÉCURITÉ : LOG DANS LA CONSOLE ---
-    // Si tu ouvres l'inspecteur (F12), tu verras si les boutons répondent
-    if (activePad.buttons[7].pressed) console.log("Gâchette droite active !");
+// Lancer la boucle
+requestAnimationFrame(updateGamepad);
 
-    // Suite du code (clignotants, socket...)
-    if(activePad.buttons[4].pressed && !lastB1) toggleB('L');
-    if(activePad.buttons[5].pressed && !lastB2) toggleB('R');
-    if(activePad.buttons[3].pressed && !lastB3) toggleB('W');
-    lastB1 = activePad.buttons[4].pressed; 
-    lastB2 = activePad.buttons[5].pressed; 
-    lastB3 = activePad.buttons[3].pressed;
+function updateBlinkers(gp) {
+    const btnL1 = gp.buttons[4].pressed;
+    const btnR1 = gp.buttons[5].pressed;
+    const btnY = gp.buttons[3].pressed; // Warning
 
-    const now = Date.now();
-    if(now - lastSend > 50) {
-        socket.emit('drive_cmd', { 
-            v: Math.round((activePad.buttons[7].value - activePad.buttons[6].value) * 255), 
-            d: Math.round(activePad.axes[0] * 255), 
-            blinker: currentBlinker, 
-            horn: activePad.buttons[14].pressed 
-        });
-        lastSend = now;
+    document.getElementById('gui-L').classList.toggle('is-blinking', btnL1 || btnY);
+    document.getElementById('dot-L').classList.toggle('active', btnL1 || btnY);
+    
+    document.getElementById('gui-R').classList.toggle('is-blinking', btnR1 || btnY);
+    document.getElementById('dot-R').classList.toggle('active', btnR1 || btnY);
+    
+    document.getElementById('dot-W').classList.toggle('active', btnY);
+}
+
+// --- 3. PING ET SOCKETS ---
+setInterval(async () => {
+    const start = Date.now();
+    try {
+        await fetch('/static/style.css', { method: 'HEAD' });
+        document.getElementById('ping-val').innerText = Date.now() - start;
+    } catch (e) {
+        document.getElementById('ping-val').innerText = "??";
     }
-    requestAnimationFrame(updateLoop);
-}
-requestAnimationFrame(updateLoop);
+}, 2000);
 
-function toggleB(m) {
-    currentBlinker = (currentBlinker === m) ? 'OFF' : m;
-    const cam = document.getElementById('cam-card');
-    if(cam) cam.className = 'card camera-container ' + (currentBlinker !== 'OFF' ? 'flash-' + currentBlinker : '');
-}
+socket.on('robot_status', (data) => {
+    document.getElementById('speed').innerText = Math.round(data.speed);
+    const esp = document.getElementById('esp-stat');
+    esp.innerText = data.connected ? "CONNECTED" : "OFFLINE";
+    esp.className = data.connected ? "" : "status-off";
+});
